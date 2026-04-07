@@ -27,8 +27,8 @@ export function renderSpriteSheet(scene, frames, palette, key, scale = 2) {
   if (scene.textures.exists(key)) return;
   const h = frames[0].length;
   const w = frames[0][0].length;
-  const frameW = w * scale;
-  const frameH = h * scale;
+  const frameW = Math.round(w * scale);
+  const frameH = Math.round(h * scale);
   const canvas = document.createElement('canvas');
   canvas.width = frameW * frames.length;
   canvas.height = frameH;
