@@ -6,6 +6,8 @@ import BootScene from './scenes/BootScene.js';
 import GameScene from './scenes/GameScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import HUDScene from './scenes/HUDScene.js';
+import eventBus, { Events } from './core/EventBus.js';
+import gameState from './core/GameState.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -36,9 +38,6 @@ const config = {
 const game = new Phaser.Game(config);
 
 // Expose for Playwright QA
-import eventBus, { Events } from './core/EventBus.js';
-import gameState from './core/GameState.js';
-
 window.__GAME__ = game;
 window.__GAME_STATE__ = gameState;
 window.__EVENT_BUS__ = eventBus;
@@ -72,17 +71,6 @@ window.render_game_to_text = () => {
   }
 
   return JSON.stringify(payload);
-};
-
-window.advanceTime = (ms) => {
-  return new Promise((resolve) => {
-    const start = performance.now();
-    function step() {
-      if (performance.now() - start >= ms) return resolve();
-      requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  });
 };
 
 export default game;

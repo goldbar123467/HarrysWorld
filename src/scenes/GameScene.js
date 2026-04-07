@@ -450,6 +450,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.die();
     this._timerEvent.destroy();
+    this._timerEvent = null;
 
     eventBus.emit(Events.GAME_OVER, { won, score: gameState.score });
 
