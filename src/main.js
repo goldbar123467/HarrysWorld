@@ -5,6 +5,7 @@ import { GAME } from './core/Constants.js';
 import BootScene from './scenes/BootScene.js';
 import GameScene from './scenes/GameScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
+import HUDScene from './scenes/HUDScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -27,7 +28,7 @@ const config = {
   render: {
     preserveDrawingBuffer: true,
   },
-  scene: [BootScene, GameScene, GameOverScene],
+  scene: [BootScene, GameScene, GameOverScene, HUDScene],
 };
 
 const game = new Phaser.Game(config);
