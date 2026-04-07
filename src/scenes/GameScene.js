@@ -448,6 +448,26 @@ export default class GameScene extends Phaser.Scene {
       gameState.bestScore = gameState.score;
     }
 
+    // Death particle burst
+    if (!won && this.player.active) {
+      for (let i = 0; i < 10; i++) {
+        const p = this.add.image(this.player.x, this.player.y, 'dust_particle')
+          .setDepth(20).setTint(0xFF4444).setScale(1.5);
+        const angle = (Math.PI * 2 / 10) * i;
+        const speed = Math.round(60 * GAME.PX);
+        this.tweens.add({
+          targets: p,
+          x: this.player.x + Math.cos(angle) * speed,
+          y: this.player.y + Math.sin(angle) * speed,
+          alpha: 0,
+          scaleX: 0.2,
+          scaleY: 0.2,
+          duration: 500,
+          onComplete: () => p.destroy(),
+        });
+      }
+    }
+
     this.player.die();
     this._timerEvent.destroy();
 
@@ -455,7 +475,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Fade out then switch scene
     this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
-    this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+    this.time.delayedCall(EFFECTS.FADE_DURATION + 600, () => {
       this.scene.stop('HUDScene');
       this.scene.start('GameOverScene');
     });
