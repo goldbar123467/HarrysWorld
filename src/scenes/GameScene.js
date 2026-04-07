@@ -162,24 +162,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _createBackground() {
-    // Tile wall from top of screen to ground level
-    const wallTexture = this.textures.get('wall');
-    const wallFrame = wallTexture.getSourceImage();
-    const tileW = wallFrame.width;
-    const tileH = wallFrame.height;
-    const numTilesX = Math.ceil(GAME.LEVEL_WIDTH / tileW) + 1;
-    const numTilesY = Math.ceil(GAME.GROUND_Y / tileH) + 1;
-
-    for (let ix = 0; ix < numTilesX; ix++) {
-      for (let iy = 0; iy < numTilesY; iy++) {
-        const wx = ix * tileW + tileW / 2;
-        const wy = iy * tileH + tileH / 2;
-        if (wy - tileH / 2 < GAME.GROUND_Y) {
-          const wall = this.add.image(wx, wy, 'wall');
-          wall.setDepth(-10);
-        }
-      }
-    }
+    // Single TileSprite for the wall — replaces hundreds of individual images
+    this.add.tileSprite(0, 0, GAME.LEVEL_WIDTH, GAME.GROUND_Y, 'wall')
+      .setOrigin(0, 0)
+      .setDepth(-10);
 
     // Scatter locker decorations at regular intervals along the hallway
     const lockerTexture = this.textures.get('locker');

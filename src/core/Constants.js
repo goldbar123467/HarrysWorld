@@ -178,6 +178,8 @@ export const OBSTACLE_LAYOUTS = [
   { x: 0.52, type: 'chair' },
   { x: 0.68, type: 'desk' },
   { x: 0.80, type: 'desk' },
+  { x: 0.87, type: 'chair' },
+  { x: 0.93, type: 'desk' },
 ];
 
 export const COLLECTIBLE_LAYOUTS = [
@@ -200,4 +202,6 @@ export const MONITOR_LAYOUTS = [
   { x: 0.40, onGround: false, platformIndex: 3 },
   { x: 0.60, onGround: true },
   { x: 0.78, onGround: false, platformIndex: 7 },
+  { x: 0.85, onGround: true },
+  { x: 0.92, onGround: false, platformIndex: 9 },
 ];
