@@ -26,6 +26,8 @@ const config = {
     },
   },
   render: {
+    pixelArt: true,
+    roundPixels: true,
     preserveDrawingBuffer: true,
   },
   scene: [BootScene, GameScene, GameOverScene, HUDScene],
