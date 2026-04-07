@@ -465,5 +465,17 @@ export default class GameScene extends Phaser.Scene {
     eventBus.off(Events.PLAYER_DIED, this._onPlayerDied);
     eventBus.off(Events.PLAYER_LANDED, this._onPlayerLanded);
     this.events.off('shutdown', this.shutdown, this);
+
+    // Destroy player to prevent duplicate Harry on restart
+    if (this.player) {
+      this.player.destroy();
+      this.player = null;
+    }
+
+    // Destroy timer event
+    if (this._timerEvent) {
+      this._timerEvent.destroy();
+      this._timerEvent = null;
+    }
   }
 }

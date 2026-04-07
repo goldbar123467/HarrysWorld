@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:update-snapshots": "npx playwright test --update-snapshots"
   },
   "dependencies": {
     "phaser": "^3.80.1"

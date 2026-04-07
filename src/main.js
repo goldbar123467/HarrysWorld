@@ -35,4 +35,54 @@ const config = {
 
 const game = new Phaser.Game(config);
 
+// Expose for Playwright QA
+import eventBus, { Events } from './core/EventBus.js';
+import gameState from './core/GameState.js';
+
+window.__GAME__ = game;
+window.__GAME_STATE__ = gameState;
+window.__EVENT_BUS__ = eventBus;
+window.__EVENTS__ = Events;
+
+window.render_game_to_text = () => {
+  if (!game || !gameState) return JSON.stringify({ error: 'not_ready' });
+
+  const activeScenes = game.scene.getScenes(true).map(s => s.scene.key);
+  const payload = {
+    coords: 'origin:top-left x:right y:down',
+    mode: gameState.gameOver ? 'game_over' : 'playing',
+    scenes: activeScenes,
+    score: gameState.score,
+    bestScore: gameState.bestScore,
+    timeLeft: gameState.timeLeft,
+    combo: gameState.combo,
+  };
+
+  const gameScene = game.scene.getScene('GameScene');
+  if (gameState.started && gameScene?.player) {
+    const p = gameScene.player;
+    const body = p.body;
+    payload.player = {
+      x: Math.round(p.x), y: Math.round(p.y),
+      active: p.active, visible: p.visible,
+      vx: body ? Math.round(body.velocity.x) : 0,
+      vy: body ? Math.round(body.velocity.y) : 0,
+      onGround: body ? body.blocked.down : false,
+    };
+  }
+
+  return JSON.stringify(payload);
+};
+
+window.advanceTime = (ms) => {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    function step() {
+      if (performance.now() - start >= ms) return resolve();
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+};
+
 export default game;

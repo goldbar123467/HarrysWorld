@@ -103,6 +103,10 @@ export default class HUDScene extends Phaser.Scene {
   }
 
   shutdown() {
+    if (this._timerTween) {
+      this._timerTween.stop();
+      this._timerTween = null;
+    }
     eventBus.off(Events.SCORE_CHANGED, this._onScoreChanged);
     eventBus.off(Events.TIME_UPDATE, this._onTimeUpdate);
     eventBus.off(Events.SPECTACLE_COMBO, this._onCombo);
