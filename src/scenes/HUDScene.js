@@ -37,7 +37,7 @@ export default class HUDScene extends Phaser.Scene {
     // Combo text (top-right)
     this._comboText = this.add.text(GAME.WIDTH - pad, top, '', {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: HUD.FONT_SIZE + 'px',
+      fontSize: HUD.COMBO_FONT_SIZE + 'px',
       color: '#FFD700',
       fontStyle: 'bold',
       stroke: COLORS.TEXT_SHADOW,
