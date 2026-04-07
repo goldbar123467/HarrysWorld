@@ -1,7 +1,7 @@
 // Player.js — Harry character entity
 
 import Phaser from 'phaser';
-import { PLAYER, GAME } from '../core/Constants.js';
+import { PLAYER, GAME, EFFECTS } from '../core/Constants.js';
 import eventBus, { Events } from '../core/EventBus.js';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
@@ -56,6 +56,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Landing detection
     if (onFloor && !this._wasOnFloor) {
+      // Squash on land
+      this._squashStretch(EFFECTS.SQUASH_SCALE_X, EFFECTS.SQUASH_SCALE_Y);
       eventBus.emit(Events.PLAYER_LANDED);
       this._isJumping = false;
       this._jumpHoldFrames = 0;
@@ -66,6 +68,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityY(PLAYER.JUMP_FORCE);
       this._isJumping = true;
       this._jumpHoldFrames = 0;
+      // Stretch on jump
+      this._squashStretch(EFFECTS.STRETCH_SCALE_X, EFFECTS.STRETCH_SCALE_Y);
       eventBus.emit(Events.PLAYER_JUMP);
       eventBus.emit(Events.SPECTACLE_ACTION, { action: 'jump' });
     }
@@ -98,6 +102,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.y > GAME.HEIGHT + PLAYER.HEIGHT * 2) {
       eventBus.emit(Events.PLAYER_DIED);
     }
+  }
+
+  _squashStretch(sx, sy) {
+    this.setScale(sx, sy);
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 1,
+      scaleY: 1,
+      duration: EFFECTS.SQUASH_DURATION,
+      ease: 'Back.easeOut',
+    });
   }
 
   die() {

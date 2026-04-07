@@ -116,6 +116,37 @@ export const SAFE_ZONE = {
   RIGHT: Math.round(16 * PX),
 };
 
+export const EFFECTS = {
+  // Screen shake
+  SHAKE_DURATION: 150,
+  SHAKE_INTENSITY: 0.008,
+  // Squash & stretch
+  SQUASH_SCALE_X: 1.25,
+  SQUASH_SCALE_Y: 0.75,
+  STRETCH_SCALE_X: 0.8,
+  STRETCH_SCALE_Y: 1.2,
+  SQUASH_DURATION: 120,
+  // Particles
+  DUST_COUNT: 5,
+  DUST_SPEED: Math.round(40 * PX),
+  DUST_LIFESPAN: 400,
+  SPARKLE_COUNT: 8,
+  SPARKLE_SPEED: Math.round(80 * PX),
+  SPARKLE_LIFESPAN: 500,
+  // Transitions
+  FADE_DURATION: 350,
+  // Time warning
+  TIME_WARNING_THRESHOLD: 10,
+};
+
+export const HUD = {
+  PADDING: Math.round(12 * PX),
+  FONT_SIZE: Math.round(18 * PX),
+  TIMER_FONT_SIZE: Math.round(22 * PX),
+  COMBO_FONT_SIZE: Math.round(32 * PX),
+  COMBO_POPUP_DURATION: 800,
+};
+
 export const TOUCH = {
   BUTTON_SIZE: Math.round(64 * PX),
   BUTTON_ALPHA: 0.35,

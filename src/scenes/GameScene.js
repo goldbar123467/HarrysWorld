@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import {
   GAME, PLAYER, OBSTACLE, COLLECTIBLE, HALL_MONITOR, COLORS, TOUCH, SAFE_ZONE,
-  PLATFORM_LAYOUTS, OBSTACLE_LAYOUTS, COLLECTIBLE_LAYOUTS, MONITOR_LAYOUTS, UI,
+  PLATFORM_LAYOUTS, OBSTACLE_LAYOUTS, COLLECTIBLE_LAYOUTS, MONITOR_LAYOUTS, UI, EFFECTS, HUD,
 } from '../core/Constants.js';
 import eventBus, { Events } from '../core/EventBus.js';
 import gameState from '../core/GameState.js';
@@ -84,8 +84,81 @@ export default class GameScene extends Phaser.Scene {
     // Scene cleanup binding
     this.events.on('shutdown', this.shutdown, this);
 
+    // Launch HUD overlay scene
+    this.scene.launch('HUDScene');
+
+    // Create particle textures
+    this._createParticleTextures();
+
+    // Landing dust listener
+    this._onPlayerLanded = () => this._emitDustParticles();
+    eventBus.on(Events.PLAYER_LANDED, this._onPlayerLanded);
+
+    // Fade in from black
+    this.cameras.main.fadeIn(EFFECTS.FADE_DURATION, 0, 0, 0);
+
     eventBus.emit(Events.GAME_START);
     eventBus.emit(Events.SPECTACLE_ENTRANCE, { entity: 'level' });
+  }
+
+  _createParticleTextures() {
+    // Dust particle (small tan circle)
+    const dg = this.make.graphics({ add: false });
+    const dustSize = Math.max(Math.round(3 * GAME.PX), 2);
+    dg.fillStyle(0xBCAAA4);
+    dg.fillCircle(dustSize, dustSize, dustSize);
+    dg.generateTexture('dust_particle', dustSize * 2, dustSize * 2);
+    dg.destroy();
+
+    // Sparkle particle (small yellow diamond)
+    const sg = this.make.graphics({ add: false });
+    const spSize = Math.max(Math.round(3 * GAME.PX), 2);
+    sg.fillStyle(0xFFD700);
+    sg.fillRect(spSize, 0, spSize, spSize * 2);
+    sg.fillRect(0, spSize, spSize * 2, spSize);
+    sg.generateTexture('sparkle_particle', spSize * 2, spSize * 2);
+    sg.destroy();
+  }
+
+  _emitDustParticles() {
+    if (!this.player || !this.player.active) return;
+    const px = this.player.x;
+    const py = this.player.y + this.player.displayHeight / 2;
+
+    for (let i = 0; i < EFFECTS.DUST_COUNT; i++) {
+      const dust = this.add.image(px, py, 'dust_particle').setDepth(9).setAlpha(0.7);
+      const angle = Math.PI + (Math.random() - 0.5) * Math.PI * 0.8;
+      const speed = EFFECTS.DUST_SPEED * (0.5 + Math.random() * 0.5);
+      this.tweens.add({
+        targets: dust,
+        x: px + Math.cos(angle) * speed,
+        y: py + Math.sin(angle) * speed * 0.3 - Math.random() * EFFECTS.DUST_SPEED * 0.5,
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: EFFECTS.DUST_LIFESPAN,
+        onComplete: () => dust.destroy(),
+      });
+    }
+  }
+
+  _emitSparkles(x, y) {
+    for (let i = 0; i < EFFECTS.SPARKLE_COUNT; i++) {
+      const sparkle = this.add.image(x, y, 'sparkle_particle').setDepth(15).setAlpha(1);
+      const angle = (Math.PI * 2 / EFFECTS.SPARKLE_COUNT) * i + (Math.random() - 0.5) * 0.5;
+      const speed = EFFECTS.SPARKLE_SPEED * (0.5 + Math.random() * 0.5);
+      this.tweens.add({
+        targets: sparkle,
+        x: x + Math.cos(angle) * speed,
+        y: y + Math.sin(angle) * speed,
+        alpha: 0,
+        scaleX: 0.2,
+        scaleY: 0.2,
+        duration: EFFECTS.SPARKLE_LIFESPAN,
+        ease: 'Quad.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
   }
 
   _createBackground() {
@@ -298,6 +371,9 @@ export default class GameScene extends Phaser.Scene {
     const now = this.time.now;
     collectible.collect();
 
+    // Sparkle particles
+    this._emitSparkles(collectible.x, collectible.y);
+
     // Score
     gameState.score += collectible.scoreValue;
 
@@ -339,6 +415,10 @@ export default class GameScene extends Phaser.Scene {
   _onHitMonitor(player, monitor) {
     if (this._gameEnded) return;
     if (!monitor.active) return;
+    // Screen shake on hit
+    this.cameras.main.shake(EFFECTS.SHAKE_DURATION, EFFECTS.SHAKE_INTENSITY);
+    // Flash red overlay
+    this.cameras.main.flash(200, 255, 0, 0, false, null, this);
     this._endGame(false);
   }
 
@@ -373,13 +453,17 @@ export default class GameScene extends Phaser.Scene {
 
     eventBus.emit(Events.GAME_OVER, { won, score: gameState.score });
 
-    this.time.delayedCall(800, () => {
+    // Fade out then switch scene
+    this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
+    this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+      this.scene.stop('HUDScene');
       this.scene.start('GameOverScene');
     });
   }
 
   shutdown() {
     eventBus.off(Events.PLAYER_DIED, this._onPlayerDied);
+    eventBus.off(Events.PLAYER_LANDED, this._onPlayerLanded);
     this.events.off('shutdown', this.shutdown, this);
   }
 }
