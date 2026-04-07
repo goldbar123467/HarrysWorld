@@ -151,7 +151,10 @@ export default class GameOverScene extends Phaser.Scene {
       });
     });
 
+    this._restarting = false;
     btnContainer.on('pointerdown', () => {
+      if (this._restarting) return;
+      this._restarting = true;
       gameState.reset();
       eventBus.emit(Events.GAME_RESTART);
       this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
