@@ -1,0 +1,18 @@
+{
+  "name": "harrys-world",
+  "version": "1.0.0",
+  "description": "Harry is late to class! Help him navigate through the school to reach his classroom in time.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "vite": "^5.4.0"
+  }
+}
