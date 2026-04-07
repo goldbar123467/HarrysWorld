@@ -132,4 +132,4 @@ const frame1 = [
 ];
 
 export const HARRY_FRAMES = [frame0, frame1];
-export const HARRY_SCALE = 4;
+export const HARRY_SCALE = 2.8;

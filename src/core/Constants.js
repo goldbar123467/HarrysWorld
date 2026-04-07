@@ -35,8 +35,8 @@ export const GAME = {
 const SPRITE_ASPECT = 1.5;
 
 export const PLAYER = {
-  WIDTH: Math.round(_canvasW * 0.12),
-  HEIGHT: Math.round(_canvasW * 0.12 * SPRITE_ASPECT),
+  WIDTH: Math.round(_canvasW * 0.084),
+  HEIGHT: Math.round(_canvasW * 0.084 * SPRITE_ASPECT),
   SPEED: Math.round(280 * PX),
   JUMP_FORCE: Math.round(-450 * PX),
   JUMP_HOLD_FORCE: Math.round(-25 * PX),
