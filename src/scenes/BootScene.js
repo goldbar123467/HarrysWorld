@@ -1,7 +1,19 @@
-// BootScene.js — Generates all textures procedurally, then starts GameScene
+// BootScene.js — Generates all textures from pixel art data, then starts GameScene
 
 import Phaser from 'phaser';
-import { PLAYER, OBSTACLE, COLLECTIBLE, HALL_MONITOR, COLORS, GAME } from '../core/Constants.js';
+import { renderPixelArt, renderSpriteSheet } from '../core/PixelRenderer.js';
+import { PALETTE } from '../sprites/palette.js';
+import { HARRY_FRAMES, HARRY_SCALE } from '../sprites/player.js';
+import { HALL_MONITOR_FRAMES, HALL_MONITOR_SCALE } from '../sprites/enemies.js';
+import { BOOK_PIXELS, BOOK_SCALE, HALL_PASS_PIXELS, HALL_PASS_SCALE } from '../sprites/items.js';
+import { DESK_PIXELS, DESK_SCALE, CHAIR_PIXELS, CHAIR_SCALE } from '../sprites/obstacles.js';
+import { DOOR_PIXELS, DOOR_SCALE } from '../sprites/door.js';
+import {
+  GROUND_V1, GROUND_V2, GROUND_V3, GROUND_SCALE,
+  PLATFORM_PIXELS, PLATFORM_SCALE,
+  WALL_PIXELS, WALL_SCALE,
+  LOCKER_PIXELS, LOCKER_SCALE,
+} from '../sprites/tiles.js';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -9,281 +21,70 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this._generateHarryTexture();
-    this._generateHarryWalkTexture();
-    this._generatePlatformTexture();
-    this._generateGroundTexture();
-    this._generateDeskTexture();
-    this._generateChairTexture();
-    this._generateBookTexture();
-    this._generateHallPassTexture();
-    this._generateHallMonitorTexture();
-    this._generateDoorTexture();
+    // Player spritesheet (2 frames: idle + walk)
+    renderSpriteSheet(this, HARRY_FRAMES, PALETTE, 'harry', HARRY_SCALE);
+
+    // Hall monitor spritesheet (2 frames: idle + walk)
+    renderSpriteSheet(this, HALL_MONITOR_FRAMES, PALETTE, 'hall_monitor', HALL_MONITOR_SCALE);
+
+    // Single-frame sprites
+    renderPixelArt(this, DESK_PIXELS, PALETTE, 'desk', DESK_SCALE);
+    renderPixelArt(this, CHAIR_PIXELS, PALETTE, 'chair', CHAIR_SCALE);
+    renderPixelArt(this, BOOK_PIXELS, PALETTE, 'book', BOOK_SCALE);
+    renderPixelArt(this, HALL_PASS_PIXELS, PALETTE, 'hall_pass', HALL_PASS_SCALE);
+    renderPixelArt(this, DOOR_PIXELS, PALETTE, 'door', DOOR_SCALE);
+
+    // Ground tile variants
+    renderPixelArt(this, GROUND_V1, PALETTE, 'ground', GROUND_SCALE);
+    renderPixelArt(this, GROUND_V1, PALETTE, 'ground_v1', GROUND_SCALE);
+    renderPixelArt(this, GROUND_V2, PALETTE, 'ground_v2', GROUND_SCALE);
+    renderPixelArt(this, GROUND_V3, PALETTE, 'ground_v3', GROUND_SCALE);
+
+    // Platform tile
+    renderPixelArt(this, PLATFORM_PIXELS, PALETTE, 'platform', PLATFORM_SCALE);
+
+    // Background tiles
+    renderPixelArt(this, WALL_PIXELS, PALETTE, 'wall', WALL_SCALE);
+    renderPixelArt(this, LOCKER_PIXELS, PALETTE, 'locker', LOCKER_SCALE);
+
+    // Touch buttons (kept as procedural graphics)
     this._generateTouchButtons();
+
+    // Create animations
+    this._createAnimations();
 
     this.scene.start('GameScene');
   }
 
-  _generateHarryTexture() {
-    const w = PLAYER.WIDTH;
-    const h = PLAYER.HEIGHT;
-    const g = this.make.graphics({ add: false });
+  _createAnimations() {
+    // Harry walk animation from spritesheet frames
+    if (!this.anims.exists('harry_walk_anim')) {
+      this.anims.create({
+        key: 'harry_walk_anim',
+        frames: this.anims.generateFrameNumbers('harry', { start: 0, end: 1 }),
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
 
-    // Legs / pants
-    const legW = Math.round(w * 0.3);
-    const legH = Math.round(h * 0.35);
-    const legY = h - legH;
-    g.fillStyle(COLORS.HARRY_PANTS);
-    g.fillRect(Math.round(w * 0.15), legY, legW, legH);
-    g.fillRect(Math.round(w * 0.55), legY, legW, legH);
+    // Harry idle (single frame)
+    if (!this.anims.exists('harry_idle')) {
+      this.anims.create({
+        key: 'harry_idle',
+        frames: [{ key: 'harry', frame: 0 }],
+        frameRate: 1,
+      });
+    }
 
-    // Body / shirt
-    const bodyH = Math.round(h * 0.35);
-    const bodyY = legY - bodyH;
-    g.fillStyle(COLORS.HARRY_SHIRT);
-    g.fillRect(Math.round(w * 0.1), bodyY, Math.round(w * 0.8), bodyH);
-
-    // Head
-    const headSize = Math.round(w * 0.6);
-    const headX = Math.round((w - headSize) / 2);
-    const headY = bodyY - headSize;
-    g.fillStyle(COLORS.HARRY_SKIN);
-    g.fillRect(headX, headY, headSize, headSize);
-
-    // Hair
-    g.fillStyle(COLORS.HARRY_HAIR);
-    g.fillRect(headX, headY, headSize, Math.round(headSize * 0.3));
-
-    // Eyes
-    g.fillStyle(0x000000);
-    const eyeSize = Math.max(2, Math.round(headSize * 0.12));
-    g.fillRect(headX + Math.round(headSize * 0.25), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-    g.fillRect(headX + Math.round(headSize * 0.6), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-
-    g.generateTexture('harry', w, h);
-    g.destroy();
-  }
-
-  _generateHarryWalkTexture() {
-    const w = PLAYER.WIDTH;
-    const h = PLAYER.HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Legs / pants — shifted for walk frame
-    const legW = Math.round(w * 0.3);
-    const legH = Math.round(h * 0.35);
-    const legY = h - legH;
-    g.fillStyle(COLORS.HARRY_PANTS);
-    g.fillRect(Math.round(w * 0.05), legY, legW, legH);
-    g.fillRect(Math.round(w * 0.65), legY, legW, legH);
-
-    // Body / shirt
-    const bodyH = Math.round(h * 0.35);
-    const bodyY = legY - bodyH;
-    g.fillStyle(COLORS.HARRY_SHIRT);
-    g.fillRect(Math.round(w * 0.1), bodyY, Math.round(w * 0.8), bodyH);
-
-    // Head
-    const headSize = Math.round(w * 0.6);
-    const headX = Math.round((w - headSize) / 2);
-    const headY = bodyY - headSize;
-    g.fillStyle(COLORS.HARRY_SKIN);
-    g.fillRect(headX, headY, headSize, headSize);
-
-    // Hair
-    g.fillStyle(COLORS.HARRY_HAIR);
-    g.fillRect(headX, headY, headSize, Math.round(headSize * 0.3));
-
-    // Eyes
-    g.fillStyle(0x000000);
-    const eyeSize = Math.max(2, Math.round(headSize * 0.12));
-    g.fillRect(headX + Math.round(headSize * 0.25), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-    g.fillRect(headX + Math.round(headSize * 0.6), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-
-    g.generateTexture('harry_walk', w, h);
-    g.destroy();
-  }
-
-  _generatePlatformTexture() {
-    const w = 32;
-    const h = 16;
-    const g = this.make.graphics({ add: false });
-    g.fillStyle(COLORS.PLATFORM);
-    g.fillRect(0, 0, w, h);
-    g.fillStyle(0x757575);
-    g.fillRect(0, 0, w, 2);
-    g.generateTexture('platform', w, h);
-    g.destroy();
-  }
-
-  _generateGroundTexture() {
-    const w = 64;
-    const h = 32;
-    const g = this.make.graphics({ add: false });
-    g.fillStyle(COLORS.GROUND);
-    g.fillRect(0, 0, w, h);
-    g.fillStyle(COLORS.GROUND_TOP);
-    g.fillRect(0, 0, w, 4);
-    g.generateTexture('ground', w, h);
-    g.destroy();
-  }
-
-  _generateDeskTexture() {
-    const w = OBSTACLE.DESK_WIDTH;
-    const h = OBSTACLE.DESK_HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Desktop surface
-    g.fillStyle(COLORS.DESK);
-    g.fillRect(0, 0, w, Math.round(h * 0.3));
-
-    // Legs
-    const legW = Math.max(3, Math.round(w * 0.08));
-    g.fillStyle(0x5D4037);
-    g.fillRect(Math.round(w * 0.1), Math.round(h * 0.3), legW, Math.round(h * 0.7));
-    g.fillRect(Math.round(w * 0.82), Math.round(h * 0.3), legW, Math.round(h * 0.7));
-
-    g.generateTexture('desk', w, h);
-    g.destroy();
-  }
-
-  _generateChairTexture() {
-    const w = OBSTACLE.CHAIR_WIDTH;
-    const h = OBSTACLE.CHAIR_HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Seat
-    g.fillStyle(COLORS.CHAIR);
-    g.fillRect(0, Math.round(h * 0.4), w, Math.round(h * 0.15));
-
-    // Back
-    g.fillRect(0, 0, Math.max(3, Math.round(w * 0.15)), Math.round(h * 0.55));
-
-    // Legs
-    const legW = Math.max(2, Math.round(w * 0.1));
-    g.fillStyle(0x4E342E);
-    g.fillRect(Math.round(w * 0.05), Math.round(h * 0.55), legW, Math.round(h * 0.45));
-    g.fillRect(Math.round(w * 0.8), Math.round(h * 0.55), legW, Math.round(h * 0.45));
-
-    g.generateTexture('chair', w, h);
-    g.destroy();
-  }
-
-  _generateBookTexture() {
-    const w = COLLECTIBLE.BOOK_WIDTH;
-    const h = COLLECTIBLE.BOOK_HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Cover
-    g.fillStyle(COLORS.BOOK_COVER);
-    g.fillRect(0, 0, w, h);
-
-    // Pages
-    const pageInset = Math.max(2, Math.round(w * 0.15));
-    g.fillStyle(COLORS.BOOK_PAGES);
-    g.fillRect(pageInset, Math.round(h * 0.1), w - pageInset * 2, Math.round(h * 0.8));
-
-    // Spine line
-    g.fillStyle(0x0D47A1);
-    g.fillRect(Math.round(w * 0.45), 0, Math.max(1, Math.round(w * 0.1)), h);
-
-    g.generateTexture('book', w, h);
-    g.destroy();
-  }
-
-  _generateHallPassTexture() {
-    const w = COLLECTIBLE.PASS_WIDTH;
-    const h = COLLECTIBLE.PASS_HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Card background
-    g.fillStyle(COLORS.HALL_PASS);
-    g.fillRect(0, 0, w, h);
-
-    // Border
-    g.lineStyle(Math.max(1, Math.round(2 * GAME.PX)), 0xF57F17);
-    g.strokeRect(1, 1, w - 2, h - 2);
-
-    // Text line placeholder
-    g.fillStyle(0x795548);
-    g.fillRect(Math.round(w * 0.15), Math.round(h * 0.35), Math.round(w * 0.7), Math.max(2, Math.round(h * 0.12)));
-    g.fillRect(Math.round(w * 0.2), Math.round(h * 0.55), Math.round(w * 0.6), Math.max(2, Math.round(h * 0.12)));
-
-    g.generateTexture('hall_pass', w, h);
-    g.destroy();
-  }
-
-  _generateHallMonitorTexture() {
-    const w = HALL_MONITOR.WIDTH;
-    const h = HALL_MONITOR.HEIGHT;
-    const g = this.make.graphics({ add: false });
-
-    // Legs / pants
-    const legW = Math.round(w * 0.3);
-    const legH = Math.round(h * 0.35);
-    const legY = h - legH;
-    g.fillStyle(COLORS.MONITOR_PANTS);
-    g.fillRect(Math.round(w * 0.15), legY, legW, legH);
-    g.fillRect(Math.round(w * 0.55), legY, legW, legH);
-
-    // Body / shirt
-    const bodyH = Math.round(h * 0.35);
-    const bodyY = legY - bodyH;
-    g.fillStyle(COLORS.MONITOR_SHIRT);
-    g.fillRect(Math.round(w * 0.05), bodyY, Math.round(w * 0.9), bodyH);
-
-    // Head
-    const headSize = Math.round(w * 0.6);
-    const headX = Math.round((w - headSize) / 2);
-    const headY = bodyY - headSize;
-    g.fillStyle(COLORS.MONITOR_SKIN);
-    g.fillRect(headX, headY, headSize, headSize);
-
-    // Angry eyebrows
-    g.fillStyle(0x000000);
-    const eyeSize = Math.max(2, Math.round(headSize * 0.12));
-    g.fillRect(headX + Math.round(headSize * 0.2), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-    g.fillRect(headX + Math.round(headSize * 0.6), headY + Math.round(headSize * 0.45), eyeSize, eyeSize);
-    // Brows
-    g.fillRect(headX + Math.round(headSize * 0.15), headY + Math.round(headSize * 0.35), Math.round(headSize * 0.3), Math.max(1, Math.round(headSize * 0.06)));
-    g.fillRect(headX + Math.round(headSize * 0.55), headY + Math.round(headSize * 0.35), Math.round(headSize * 0.3), Math.max(1, Math.round(headSize * 0.06)));
-
-    g.generateTexture('hall_monitor', w, h);
-    g.destroy();
-  }
-
-  _generateDoorTexture() {
-    const w = Math.round(100 * GAME.PX);
-    const h = Math.round(160 * GAME.PX);
-    const g = this.make.graphics({ add: false });
-
-    // Door body
-    g.fillStyle(COLORS.DOOR);
-    g.fillRect(0, 0, w, h);
-
-    // Door frame
-    g.lineStyle(Math.max(2, Math.round(4 * GAME.PX)), 0x4E342E);
-    g.strokeRect(0, 0, w, h);
-
-    // Window
-    const winW = Math.round(w * 0.5);
-    const winH = Math.round(h * 0.25);
-    const winX = Math.round((w - winW) / 2);
-    const winY = Math.round(h * 0.12);
-    g.fillStyle(COLORS.DOOR_WINDOW);
-    g.fillRect(winX, winY, winW, winH);
-
-    // Handle
-    const handleR = Math.max(3, Math.round(8 * GAME.PX));
-    g.fillStyle(COLORS.DOOR_HANDLE);
-    g.fillCircle(Math.round(w * 0.8), Math.round(h * 0.55), handleR);
-
-    // Room number text area
-    g.fillStyle(0xFFFFFF);
-    g.fillRect(Math.round(w * 0.2), Math.round(h * 0.45), Math.round(w * 0.6), Math.round(h * 0.1));
-
-    g.generateTexture('door', w, h);
-    g.destroy();
+    // Hall monitor walk animation
+    if (!this.anims.exists('monitor_walk_anim')) {
+      this.anims.create({
+        key: 'monitor_walk_anim',
+        frames: this.anims.generateFrameNumbers('hall_monitor', { start: 0, end: 1 }),
+        frameRate: 4,
+        repeat: -1,
+      });
+    }
   }
 
   _generateTouchButtons() {

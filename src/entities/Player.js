@@ -20,8 +20,6 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._isJumping = false;
     this._wasOnFloor = false;
     this._facingRight = true;
-    this._animTimer = 0;
-    this._animFrame = 0;
 
     // Entrance tween
     this.setPosition(-PLAYER.WIDTH * 2, y);
@@ -84,17 +82,16 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     this._wasOnFloor = onFloor;
 
-    // Simple walk animation (toggle texture frame)
+    // Spritesheet walk animation
     if (onFloor && (inputState.left || inputState.right)) {
-      this._animTimer += dt;
-      if (this._animTimer > 150) {
-        this._animTimer = 0;
-        this._animFrame = (this._animFrame + 1) % 2;
-        this.setTexture(this._animFrame === 0 ? 'harry' : 'harry_walk');
+      if (!this.anims.isPlaying || this.anims.currentAnim?.key !== 'harry_walk_anim') {
+        this.play('harry_walk_anim');
       }
     } else {
-      this._animTimer = 0;
-      this.setTexture('harry');
+      if (this.anims.isPlaying && this.anims.currentAnim?.key === 'harry_walk_anim') {
+        this.stop();
+      }
+      this.setFrame(0);
     }
 
     // Fall off world — die

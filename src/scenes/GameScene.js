@@ -33,6 +33,7 @@ export default class GameScene extends Phaser.Scene {
     this._inputState = { left: false, right: false, jump: false };
 
     // Build level
+    this._createBackground();
     this._createGround();
     this._createPlatforms();
     this._createObstacles();
@@ -87,14 +88,53 @@ export default class GameScene extends Phaser.Scene {
     eventBus.emit(Events.SPECTACLE_ENTRANCE, { entity: 'level' });
   }
 
+  _createBackground() {
+    // Tile wall from top of screen to ground level
+    const wallTexture = this.textures.get('wall');
+    const wallFrame = wallTexture.getSourceImage();
+    const tileW = wallFrame.width;
+    const tileH = wallFrame.height;
+    const numTilesX = Math.ceil(GAME.LEVEL_WIDTH / tileW) + 1;
+    const numTilesY = Math.ceil(GAME.GROUND_Y / tileH) + 1;
+
+    for (let ix = 0; ix < numTilesX; ix++) {
+      for (let iy = 0; iy < numTilesY; iy++) {
+        const wx = ix * tileW + tileW / 2;
+        const wy = iy * tileH + tileH / 2;
+        if (wy - tileH / 2 < GAME.GROUND_Y) {
+          const wall = this.add.image(wx, wy, 'wall');
+          wall.setDepth(-10);
+        }
+      }
+    }
+
+    // Scatter locker decorations at regular intervals along the hallway
+    const lockerTexture = this.textures.get('locker');
+    const lockerFrame = lockerTexture.getSourceImage();
+    const lockerH = lockerFrame.height;
+    const lockerSpacing = 200;
+    const lockerY = GAME.GROUND_Y - lockerH / 2;
+    const numLockers = Math.ceil(GAME.LEVEL_WIDTH / lockerSpacing);
+
+    for (let i = 0; i < numLockers; i++) {
+      const lx = i * lockerSpacing + lockerSpacing / 2;
+      const locker = this.add.image(lx, lockerY, 'locker');
+      locker.setDepth(-5);
+    }
+  }
+
   _createGround() {
     this._groundGroup = this.physics.add.staticGroup();
-    const tileW = 64;
+    const groundTexture = this.textures.get('ground');
+    const groundFrame = groundTexture.getSourceImage();
+    const tileW = groundFrame.width;
     const groundH = GAME.HEIGHT - GAME.GROUND_Y;
     const numTiles = Math.ceil(GAME.LEVEL_WIDTH / tileW) + 1;
+    const variants = ['ground_v1', 'ground_v2', 'ground_v3'];
 
     for (let i = 0; i < numTiles; i++) {
-      const tile = this._groundGroup.create(i * tileW + tileW / 2, GAME.GROUND_Y + groundH / 2, 'ground');
+      const variantKey = variants[i % 3];
+      const tile = this._groundGroup.create(i * tileW + tileW / 2, GAME.GROUND_Y + groundH / 2, variantKey);
       tile.setDisplaySize(tileW, groundH);
       tile.refreshBody();
     }

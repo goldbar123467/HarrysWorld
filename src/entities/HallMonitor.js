@@ -16,6 +16,9 @@ export default class HallMonitor extends Phaser.Physics.Arcade.Sprite {
     this._patrolRange = patrolRange || HALL_MONITOR.PATROL_RANGE;
     this._direction = 1;
     this.body.setVelocityX(HALL_MONITOR.SPEED * this._direction);
+
+    // Start walk animation
+    this.play('monitor_walk_anim');
   }
 
   update(dt) {
