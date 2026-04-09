@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { GAME, COLORS, HUD, EFFECTS, UI, SAFE_ZONE } from '../core/Constants.js';
 import eventBus, { Events } from '../core/EventBus.js';
 import gameState from '../core/GameState.js';
+import audioManager from '../core/AudioManager.js';
 
 export default class HUDScene extends Phaser.Scene {
   constructor() {
@@ -14,8 +15,18 @@ export default class HUDScene extends Phaser.Scene {
     const pad = HUD.PADDING;
     const top = SAFE_ZONE.TOP;
 
-    // Score text (top-left)
-    this._scoreText = this.add.text(pad, top, 'Score: 0', {
+    // Level text (top-left, small)
+    const level = gameState.level || 1;
+    this._levelText = this.add.text(pad, top, 'Lv.' + level, {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(12 * GAME.PX) + 'px',
+      color: '#AAAAAA',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(1 * GAME.PX),
+    }).setDepth(100).setScrollFactor(0);
+
+    // Score text (top-left, below level)
+    this._scoreText = this.add.text(pad, top + Math.round(16 * GAME.PX), 'Score: 0', {
       fontFamily: UI.FONT_FAMILY,
       fontSize: HUD.FONT_SIZE + 'px',
       color: COLORS.TEXT_PRIMARY,
@@ -59,6 +70,7 @@ export default class HUDScene extends Phaser.Scene {
       if (timeLeft <= EFFECTS.TIME_WARNING_THRESHOLD && !this._timerWarning) {
         this._timerWarning = true;
         this._timerText.setColor('#F44336');
+        audioManager.playTimeWarning();
         this._timerTween = this.tweens.add({
           targets: this._timerText,
           scaleX: 1.2,

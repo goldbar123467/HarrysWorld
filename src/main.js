@@ -3,8 +3,10 @@
 import Phaser from 'phaser';
 import { GAME } from './core/Constants.js';
 import BootScene from './scenes/BootScene.js';
+import TitleScene from './scenes/TitleScene.js';
 import GameScene from './scenes/GameScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
+import PauseScene from './scenes/PauseScene.js';
 import HUDScene from './scenes/HUDScene.js';
 
 const config = {
@@ -30,7 +32,7 @@ const config = {
     roundPixels: true,
     preserveDrawingBuffer: true,
   },
-  scene: [BootScene, GameScene, GameOverScene, HUDScene],
+  scene: [BootScene, TitleScene, GameScene, GameOverScene, PauseScene, HUDScene],
 };
 
 const game = new Phaser.Game(config);
@@ -52,6 +54,8 @@ window.render_game_to_text = () => {
     coords: 'origin:top-left x:right y:down',
     mode: gameState.gameOver ? 'game_over' : 'playing',
     scenes: activeScenes,
+    level: gameState.level,
+    maxLevel: gameState.maxLevel,
     score: gameState.score,
     bestScore: gameState.bestScore,
     timeLeft: gameState.timeLeft,

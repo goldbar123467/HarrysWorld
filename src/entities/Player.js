@@ -20,6 +20,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._isJumping = false;
     this._wasOnFloor = false;
     this._facingRight = true;
+    this._speedMultiplier = 1;
 
     // Entrance tween
     this.setPosition(-PLAYER.WIDTH * 2, y);
@@ -40,12 +41,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const dtSec = dt / 1000;
 
     // Horizontal movement
+    const speed = PLAYER.SPEED * (this._speedMultiplier || 1);
     if (inputState.left) {
-      this.setVelocityX(-PLAYER.SPEED);
+      this.setVelocityX(-speed);
       this._facingRight = false;
       this.setFlipX(true);
     } else if (inputState.right) {
-      this.setVelocityX(PLAYER.SPEED);
+      this.setVelocityX(speed);
       this._facingRight = true;
       this.setFlipX(false);
     } else {

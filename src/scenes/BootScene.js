@@ -53,7 +53,7 @@ export default class BootScene extends Phaser.Scene {
     // Create animations
     this._createAnimations();
 
-    this.scene.start('GameScene');
+    this.scene.start('TitleScene');
   }
 
   _createAnimations() {
