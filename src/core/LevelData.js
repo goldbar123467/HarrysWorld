@@ -37,6 +37,9 @@ export const LEVELS = [
     powerups: [
       { x: 0.45, y: 0.48, type: 'speed' },
     ],
+    checkpoints: [
+      { x: 0.50 },
+    ],
   },
 
   // Level 2: Picking Up Speed
@@ -83,6 +86,10 @@ export const LEVELS = [
     powerups: [
       { x: 0.35, y: 0.44, type: 'time' },
       { x: 0.70, y: 0.52, type: 'shield' },
+    ],
+    checkpoints: [
+      { x: 0.35 },
+      { x: 0.70 },
     ],
   },
 
@@ -138,6 +145,19 @@ export const LEVELS = [
       { x: 0.25, y: 0.40, type: 'speed' },
       { x: 0.50, y: 0.45, type: 'shield' },
       { x: 0.78, y: 0.42, type: 'time' },
+    ],
+    checkpoints: [
+      { x: 0.33 },
+      { x: 0.66 },
+    ],
+    vicePrincipals: [
+      { x: 0.45, onGround: true },
+    ],
+    movingPlatforms: [
+      { x: 0.40, y: 0.55, w: 100, axis: 'x', range: 120, speed: 40 },
+    ],
+    wetFloors: [
+      { x: 0.50, w: 120 },
     ],
   },
 
@@ -196,6 +216,22 @@ export const LEVELS = [
     powerups: [
       { x: 0.20, y: 0.38, type: 'shield' },
       { x: 0.55, y: 0.40, type: 'time' },
+    ],
+    checkpoints: [
+      { x: 0.30 },
+      { x: 0.60 },
+    ],
+    vicePrincipals: [
+      { x: 0.35, onGround: true },
+      { x: 0.70, onGround: true },
+    ],
+    movingPlatforms: [
+      { x: 0.25, y: 0.50, w: 90, axis: 'y', range: 80, speed: 30 },
+      { x: 0.60, y: 0.45, w: 100, axis: 'x', range: 150, speed: 50 },
+    ],
+    wetFloors: [
+      { x: 0.40, w: 100 },
+      { x: 0.75, w: 80 },
     ],
   },
 
@@ -262,6 +298,26 @@ export const LEVELS = [
       { x: 0.18, y: 0.35, type: 'speed' },
       { x: 0.45, y: 0.38, type: 'shield' },
       { x: 0.75, y: 0.38, type: 'time' },
+    ],
+    checkpoints: [
+      { x: 0.25 },
+      { x: 0.50 },
+      { x: 0.75 },
+    ],
+    vicePrincipals: [
+      { x: 0.30, onGround: true },
+      { x: 0.60, onGround: true },
+      { x: 0.85, onGround: false, platformIndex: 12 },
+    ],
+    movingPlatforms: [
+      { x: 0.20, y: 0.48, w: 80, axis: 'y', range: 100, speed: 35 },
+      { x: 0.45, y: 0.52, w: 90, axis: 'x', range: 180, speed: 55 },
+      { x: 0.70, y: 0.42, w: 80, axis: 'y', range: 80, speed: 40 },
+    ],
+    wetFloors: [
+      { x: 0.35, w: 100 },
+      { x: 0.55, w: 80 },
+      { x: 0.80, w: 100 },
     ],
   },
 ];

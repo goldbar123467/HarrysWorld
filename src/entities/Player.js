@@ -39,22 +39,39 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!this.active) return;
 
     const dtSec = dt / 1000;
+    const onFloor = this.body.blocked.down || this.body.touching.down;
 
-    // Horizontal movement
+    // Horizontal movement with air control
     const speed = PLAYER.SPEED * (this._speedMultiplier || 1);
     if (inputState.left) {
-      this.setVelocityX(-speed);
+      if (onFloor) {
+        this.setVelocityX(-speed);
+      } else {
+        // Air control: lerp toward target speed for floaty feel
+        const target = -speed;
+        const current = this.body.velocity.x;
+        this.setVelocityX(current + (target - current) * 0.15);
+      }
       this._facingRight = false;
       this.setFlipX(true);
     } else if (inputState.right) {
-      this.setVelocityX(speed);
+      if (onFloor) {
+        this.setVelocityX(speed);
+      } else {
+        const target = speed;
+        const current = this.body.velocity.x;
+        this.setVelocityX(current + (target - current) * 0.15);
+      }
       this._facingRight = true;
       this.setFlipX(false);
     } else {
-      this.setVelocityX(0);
+      if (onFloor) {
+        this.setVelocityX(0);
+      } else {
+        // Air deceleration: slow down gradually
+        this.setVelocityX(this.body.velocity.x * 0.92);
+      }
     }
-
-    const onFloor = this.body.blocked.down || this.body.touching.down;
 
     // Landing detection
     if (onFloor && !this._wasOnFloor) {
@@ -117,10 +134,34 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  die() {
+  die(animate = true) {
+    if (!animate) {
+      this.setActive(false);
+      this.setVisible(false);
+      this.body.enable = false;
+      return;
+    }
+
     this.setActive(false);
-    this.setVisible(false);
     this.body.enable = false;
+
+    // Death animation: tumble and fade
+    this.scene.tweens.add({
+      targets: this,
+      angle: 360,
+      y: this.y - Math.round(60 * GAME.PX),
+      alpha: 0,
+      scaleX: 0.3,
+      scaleY: 0.3,
+      duration: 600,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.setVisible(false);
+        this.setAngle(0);
+        this.setAlpha(1);
+        this.setScale(1);
+      },
+    });
   }
 
   destroy(fromScene) {

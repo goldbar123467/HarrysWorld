@@ -87,6 +87,32 @@ export default class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1).setAlpha(0);
     this.tweens.add({ targets: bestText, alpha: 1, duration: 400, delay: 600 });
 
+    // Star rating (if won)
+    if (gameState.won) {
+      const stars = gameState._lastStars || 1;
+      const starY = startY + Math.round(175 * GAME.PX);
+      const starSize = Math.round(22 * GAME.PX);
+      const starSpacing = Math.round(30 * GAME.PX);
+      const startX = cx - starSpacing;
+
+      for (let i = 0; i < 3; i++) {
+        const filled = i < stars;
+        const star = this.add.text(startX + i * starSpacing, starY, '\u2605', {
+          fontFamily: UI.FONT_FAMILY,
+          fontSize: starSize + 'px',
+          color: filled ? '#FFD700' : '#555555',
+        }).setOrigin(0.5).setDepth(2).setAlpha(0).setScale(0.1);
+
+        this.tweens.add({
+          targets: star,
+          alpha: 1, scaleX: 1, scaleY: 1,
+          duration: 300,
+          ease: 'Back.easeOut',
+          delay: 650 + i * 150,
+        });
+      }
+    }
+
     // Time remaining (if won)
     if (gameState.won && gameState.timeLeft > 0) {
       const timeBonus = gameState.timeLeft * 5;

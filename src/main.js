@@ -8,6 +8,7 @@ import GameScene from './scenes/GameScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 import PauseScene from './scenes/PauseScene.js';
 import HUDScene from './scenes/HUDScene.js';
+import LevelSelectScene from './scenes/LevelSelectScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -32,7 +33,7 @@ const config = {
     roundPixels: true,
     preserveDrawingBuffer: true,
   },
-  scene: [BootScene, TitleScene, GameScene, GameOverScene, PauseScene, HUDScene],
+  scene: [BootScene, TitleScene, LevelSelectScene, GameScene, GameOverScene, PauseScene, HUDScene],
 };
 
 const game = new Phaser.Game(config);

@@ -110,13 +110,11 @@ export default class TitleScene extends Phaser.Scene {
       UI.BUTTON_WIDTH * 1.2, UI.BUTTON_HEIGHT * 1.2,
       Math.round(28 * GAME.PX), 900, () => this._startGame());
 
-    // Level button
+    // Level Select button
     const lvlBtnY = btnY + Math.round(70 * GAME.PX);
-    const currentLevel = gameState.level || 1;
-    this._levelText = null;
-    this._createButton(cx, lvlBtnY, 'Level ' + currentLevel, 0x1E88E5, 0x1565C0,
+    this._createButton(cx, lvlBtnY, 'Level Select', 0x1E88E5, 0x1565C0,
       UI.BUTTON_WIDTH, UI.BUTTON_HEIGHT,
-      Math.round(20 * GAME.PX), 1050, () => this._cycleLevel(), true);
+      Math.round(20 * GAME.PX), 1050, () => this._goToLevelSelect());
 
     // Controls hint
     const controlsY = GAME.HEIGHT - SAFE_ZONE.BOTTOM - Math.round(30 * GAME.PX);
@@ -149,7 +147,7 @@ export default class TitleScene extends Phaser.Scene {
     }
   }
 
-  _createButton(x, y, label, bgColor, hoverColor, w, h, fontSize, delay, callback, isLevelBtn) {
+  _createButton(x, y, label, bgColor, hoverColor, w, h, fontSize, delay, callback, pulse) {
     const gfx = this.add.graphics();
     gfx.fillStyle(bgColor, 1);
     gfx.fillRoundedRect(-w / 2, -h / 2, w, h, UI.BUTTON_RADIUS);
@@ -161,8 +159,6 @@ export default class TitleScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    if (isLevelBtn) this._levelText = text;
-
     const container = this.add.container(x, y, [gfx, text])
       .setSize(w, h)
       .setInteractive({ useHandCursor: true })
@@ -173,7 +169,7 @@ export default class TitleScene extends Phaser.Scene {
       duration: 500, ease: 'Back.easeOut', delay,
     });
 
-    if (!isLevelBtn) {
+    if (pulse !== false) {
       // Pulse the start button
       this.time.delayedCall(delay + 500, () => {
         this.tweens.add({
@@ -198,10 +194,15 @@ export default class TitleScene extends Phaser.Scene {
     container.on('pointerdown', callback);
   }
 
-  _cycleLevel() {
-    const maxLevel = gameState.maxLevel || 1;
-    gameState.level = ((gameState.level || 1) % maxLevel) + 1;
-    if (this._levelText) this._levelText.setText('Level ' + gameState.level);
+  _goToLevelSelect() {
+    if (this._starting) return;
+    this._starting = true;
+    audioManager.init();
+    audioManager.playMenuClick();
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.time.delayedCall(200, () => {
+      this.scene.start('LevelSelectScene');
+    });
   }
 
   _startGame() {

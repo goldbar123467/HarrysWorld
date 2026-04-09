@@ -12,6 +12,7 @@ import ObstacleEntity from '../entities/Obstacle.js';
 import CollectibleEntity from '../entities/Collectible.js';
 import HallMonitor from '../entities/HallMonitor.js';
 import audioManager from '../core/AudioManager.js';
+import VicePrincipal from '../entities/VicePrincipal.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -50,6 +51,10 @@ export default class GameScene extends Phaser.Scene {
     this._createCollectibles();
     this._createPowerups();
     this._createHallMonitors();
+    this._createVicePrincipals();
+    this._createMovingPlatforms();
+    this._createWetFloors();
+    this._createCheckpoints();
     this._createDoor(levelWidth);
 
     // Player
@@ -62,15 +67,28 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this._groundGroup);
     this.physics.add.collider(this.player, this._platformGroup);
     this.physics.add.collider(this.player, this._obstacleGroup);
+    if (this._movingPlatGroup) {
+      this.physics.add.collider(this.player, this._movingPlatGroup);
+    }
     this.physics.add.collider(this._monitorGroup, this._groundGroup);
     this.physics.add.collider(this._monitorGroup, this._platformGroup);
+    if (this._vpGroup) {
+      this.physics.add.collider(this._vpGroup, this._groundGroup);
+      this.physics.add.collider(this._vpGroup, this._platformGroup);
+    }
 
     // Overlaps
     this.physics.add.overlap(this.player, this._collectibleGroup, this._onCollect, null, this);
     this.physics.add.overlap(this.player, this._monitorGroup, this._onHitMonitor, null, this);
+    if (this._vpGroup) {
+      this.physics.add.overlap(this.player, this._vpGroup, this._onHitMonitor, null, this);
+    }
     this.physics.add.overlap(this.player, this._doorSprite, this._onReachDoor, null, this);
     if (this._powerupGroup) {
       this.physics.add.overlap(this.player, this._powerupGroup, this._onPowerup, null, this);
+    }
+    if (this._checkpointGroup) {
+      this.physics.add.overlap(this.player, this._checkpointGroup, this._onCheckpoint, null, this);
     }
 
     // Keyboard
@@ -93,7 +111,16 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // EventBus listeners
-    this._onPlayerDied = () => this._endGame(false);
+    this._onPlayerDied = () => {
+      if (this._gameEnded) return;
+      gameState.lives--;
+      eventBus.emit(Events.LIVES_CHANGED, { lives: gameState.lives });
+      if (gameState.lives <= 0) {
+        this._endGame(false);
+      } else {
+        this._respawnPlayer();
+      }
+    };
     eventBus.on(Events.PLAYER_DIED, this._onPlayerDied);
 
     this.events.on('shutdown', this.shutdown, this);
@@ -404,6 +431,92 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  _createMovingPlatforms() {
+    if (!this._levelData.movingPlatforms || this._levelData.movingPlatforms.length === 0) return;
+
+    this._movingPlatGroup = this.physics.add.staticGroup();
+    this._movingPlatforms = [];
+
+    this._levelData.movingPlatforms.forEach((mp) => {
+      const px = Math.round(mp.x * this._levelWidth);
+      const py = Math.round(mp.y * GAME.HEIGHT);
+      const pw = Math.round(mp.w * GAME.PX);
+      const ph = Math.round(16 * GAME.PX);
+
+      const plat = this._movingPlatGroup.create(px, py, 'platform');
+      plat.setDisplaySize(pw, ph);
+      plat.setTint(0x66BB6A); // Green tint to distinguish
+      plat.refreshBody();
+
+      plat._baseX = px;
+      plat._baseY = py;
+      plat._axis = mp.axis || 'x';
+      plat._range = Math.round(mp.range * GAME.PX);
+      plat._speed = mp.speed || 40;
+
+      this._movingPlatforms.push(plat);
+    });
+  }
+
+  _createWetFloors() {
+    if (!this._levelData.wetFloors || this._levelData.wetFloors.length === 0) return;
+
+    this._wetFloors = [];
+
+    this._levelData.wetFloors.forEach((wf) => {
+      const wx = Math.round(wf.x * this._levelWidth);
+      const wy = GAME.GROUND_Y;
+      const ww = Math.round(wf.w * GAME.PX);
+      const wh = Math.round(6 * GAME.PX);
+
+      // Visual: shiny blue-ish puddle on ground
+      const puddle = this.add.rectangle(wx, wy - wh / 2, ww, wh, 0x42A5F5, 0.4).setDepth(1);
+
+      // Warning sign (small yellow triangle)
+      const sign = this.add.graphics().setDepth(2);
+      const signX = wx - ww / 2 + Math.round(10 * GAME.PX);
+      const signY = wy - Math.round(20 * GAME.PX);
+      const signSize = Math.round(10 * GAME.PX);
+      sign.fillStyle(0xFFD740, 1);
+      sign.fillTriangle(signX, signY - signSize, signX - signSize * 0.6, signY, signX + signSize * 0.6, signY);
+      sign.fillStyle(0x000000, 1);
+      sign.fillRect(signX - 1, signY - signSize * 0.6, 2, signSize * 0.35);
+      sign.fillRect(signX - 1, signY - signSize * 0.15, 2, 2);
+
+      this._wetFloors.push({
+        x: wx,
+        width: ww,
+        puddle,
+      });
+    });
+  }
+
+  _createVicePrincipals() {
+    if (!this._levelData.vicePrincipals || this._levelData.vicePrincipals.length === 0) return;
+
+    this._vpGroup = this.physics.add.group();
+    this._vicePrincipals = [];
+
+    this._levelData.vicePrincipals.forEach((layout) => {
+      const vx = Math.round(layout.x * this._levelWidth);
+      let vy;
+      if (layout.onGround) {
+        vy = GAME.GROUND_Y - Math.round(90 * GAME.PX) / 2;
+      } else {
+        const platLayout = this._platformLayouts[layout.platformIndex];
+        if (!platLayout) {
+          vy = GAME.GROUND_Y - Math.round(90 * GAME.PX) / 2;
+        } else {
+          vy = Math.round(platLayout.y * GAME.HEIGHT) - Math.round(90 * GAME.PX) / 2;
+        }
+      }
+
+      const vp = new VicePrincipal(this, vx, vy);
+      this._vpGroup.add(vp);
+      this._vicePrincipals.push(vp);
+    });
+  }
+
   _createDoor(levelWidth) {
     const doorW = Math.round(100 * GAME.PX);
     const doorH = Math.round(160 * GAME.PX);
@@ -420,6 +533,59 @@ export default class GameScene extends Phaser.Scene {
       align: 'center',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(4);
+  }
+
+  _createCheckpoints() {
+    if (!this._levelData.checkpoints || this._levelData.checkpoints.length === 0) return;
+
+    this._checkpointGroup = this.physics.add.staticGroup();
+    this._checkpoints = [];
+
+    this._levelData.checkpoints.forEach((cp, idx) => {
+      const cx = Math.round(cp.x * this._levelWidth);
+      const cy = GAME.GROUND_Y;
+      const flag = this.physics.add.staticSprite(cx, cy, 'checkpoint');
+      flag.setOrigin(0.5, 1);
+      flag.setDepth(4);
+      flag._activated = false;
+      flag._checkpointIndex = idx;
+      flag.refreshBody();
+      this._checkpointGroup.add(flag);
+      this._checkpoints.push(flag);
+    });
+  }
+
+  _onCheckpoint(player, checkpoint) {
+    if (checkpoint._activated) return;
+
+    checkpoint._activated = true;
+    checkpoint.setTexture('checkpoint_active');
+
+    // Save checkpoint position
+    gameState.checkpointX = checkpoint.x;
+    gameState.checkpointY = GAME.GROUND_Y - PLAYER.HEIGHT;
+
+    // Visual feedback
+    const popup = this.add.text(checkpoint.x, checkpoint.y - Math.round(60 * GAME.PX), 'CHECKPOINT!', {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(16 * GAME.PX) + 'px',
+      color: '#FFD700',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: Math.round(2 * GAME.PX),
+    }).setOrigin(0.5).setDepth(25);
+
+    this.tweens.add({
+      targets: popup,
+      y: popup.y - Math.round(30 * GAME.PX),
+      alpha: 0,
+      duration: 1000,
+      onComplete: () => popup.destroy(),
+    });
+
+    this._emitSparkles(checkpoint.x, checkpoint.y - Math.round(30 * GAME.PX));
+    audioManager.playCheckpoint();
+    eventBus.emit(Events.CHECKPOINT_REACHED, { index: checkpoint._checkpointIndex });
   }
 
   _createParallaxElements() {
@@ -588,14 +754,119 @@ export default class GameScene extends Phaser.Scene {
     // Update hall monitors (patrol)
     this._monitors.forEach((m) => m.update(delta));
 
+    // Update vice principals (patrol)
+    if (this._vicePrincipals) {
+      this._vicePrincipals.forEach((vp) => vp.update(delta));
+    }
+
+    // Update moving platforms
+    if (this._movingPlatforms) {
+      this._movingPlatforms.forEach((plat) => {
+        const t = time / 1000;
+        if (plat._axis === 'x') {
+          plat.x = plat._baseX + Math.sin(t * plat._speed * 0.02) * plat._range;
+        } else {
+          plat.y = plat._baseY + Math.sin(t * plat._speed * 0.02) * plat._range;
+        }
+        plat.body.updateFromGameObject();
+      });
+    }
+
+    // Near-miss detection (close to a monitor but survived)
+    if (this.player && this.player.active && !gameState.isInvincible) {
+      const nearMissDist = Math.round(60 * GAME.PX);
+      const allEnemies = [...this._monitors];
+      if (this._vicePrincipals) allEnemies.push(...this._vicePrincipals);
+
+      for (const enemy of allEnemies) {
+        if (!enemy.active) continue;
+        const dx = Math.abs(this.player.x - enemy.x);
+        const dy = Math.abs(this.player.y - enemy.y);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < nearMissDist && dist > Math.round(30 * GAME.PX)) {
+          if (!enemy._nearMissTriggered) {
+            enemy._nearMissTriggered = true;
+            eventBus.emit(Events.SPECTACLE_NEAR_MISS);
+
+            // "CLOSE CALL!" popup
+            const popup = this.add.text(this.player.x, this.player.y - Math.round(50 * GAME.PX), 'CLOSE!', {
+              fontFamily: UI.FONT_FAMILY,
+              fontSize: Math.round(14 * GAME.PX) + 'px',
+              color: '#FF9800',
+              fontStyle: 'bold',
+              stroke: '#000000',
+              strokeThickness: Math.round(2 * GAME.PX),
+            }).setOrigin(0.5).setDepth(25);
+
+            this.tweens.add({
+              targets: popup,
+              y: popup.y - Math.round(30 * GAME.PX),
+              alpha: 0,
+              duration: 600,
+              onComplete: () => popup.destroy(),
+            });
+
+            // Bonus score for near miss
+            gameState.score += 5;
+            eventBus.emit(Events.SCORE_CHANGED, { score: gameState.score });
+          }
+        } else if (dist > nearMissDist * 2) {
+          enemy._nearMissTriggered = false;
+        }
+      }
+    }
+
+    // Speed boost trail particles
+    if (gameState.hasSpeedBoost && this.player && this.player.active) {
+      if (!this._lastTrailTime || time - this._lastTrailTime > 50) {
+        this._lastTrailTime = time;
+        const trail = this.add.circle(
+          this.player.x - (this.player.flipX ? -8 : 8) * GAME.PX,
+          this.player.y + this.player.displayHeight * 0.3,
+          Math.round(3 * GAME.PX), 0x00E676, 0.6
+        ).setDepth(9);
+        this.tweens.add({
+          targets: trail,
+          alpha: 0, scaleX: 0.1, scaleY: 0.1,
+          duration: 300,
+          onComplete: () => trail.destroy(),
+        });
+      }
+    }
+
+    // Wet floor slippery check
+    if (this._wetFloors && this.player && this.player.active) {
+      const playerOnGround = this.player.body.blocked.down || this.player.body.touching.down;
+      if (playerOnGround) {
+        const px = this.player.x;
+        let onWetFloor = false;
+        for (const wf of this._wetFloors) {
+          if (px > wf.x - wf.width / 2 && px < wf.x + wf.width / 2) {
+            onWetFloor = true;
+            break;
+          }
+        }
+        if (onWetFloor) {
+          // Reduce friction - player slides
+          this.player.body.velocity.x *= 1.02;
+        }
+      }
+    }
+
     // Combo decay
     if (gameState.combo > 0 && time - this._lastCollectTime > 2000) {
       gameState.combo = 0;
     }
 
-    // Shield visual
-    if (gameState.hasShield && this._shieldGfx) {
+    // Shield visual follows player
+    if (gameState.hasShield && this._shieldGfx && this.player) {
       this._shieldGfx.setPosition(this.player.x, this.player.y);
+    }
+
+    // Time freeze visual
+    if (gameState.hasTimeFreeze && this._freezeOverlay) {
+      // keep it alive
     }
 
     // Dust mote animation
@@ -714,14 +985,36 @@ export default class GameScene extends Phaser.Scene {
         }
       });
     } else if (type === 'time') {
-      gameState.timeLeft = Math.min(gameState.timeLeft + 10, 99);
-      eventBus.emit(Events.TIME_UPDATE, { timeLeft: gameState.timeLeft });
+      // Freeze the timer for 5 seconds, then add +5 bonus seconds
+      gameState.hasTimeFreeze = true;
+
+      // Visual freeze indicator - blue tint on timer area
+      if (!this._freezeOverlay) {
+        this._freezeOverlay = this.add.rectangle(GAME.WIDTH / 2, Math.round(20 * GAME.PX),
+          Math.round(100 * GAME.PX), Math.round(30 * GAME.PX), 0x42A5F5, 0.3)
+          .setDepth(40).setScrollFactor(0);
+        this.tweens.add({
+          targets: this._freezeOverlay,
+          alpha: 0.1, duration: 400, yoyo: true, repeat: -1,
+        });
+      }
+
+      this.time.delayedCall(5000, () => {
+        gameState.hasTimeFreeze = false;
+        gameState.timeLeft = Math.min(gameState.timeLeft + 5, 99);
+        eventBus.emit(Events.TIME_UPDATE, { timeLeft: gameState.timeLeft });
+        if (this._freezeOverlay) {
+          this._freezeOverlay.destroy();
+          this._freezeOverlay = null;
+        }
+      });
     }
   }
 
   _onHitMonitor(player, monitor) {
     if (this._gameEnded) return;
     if (!monitor.active) return;
+    if (gameState.isInvincible) return;
 
     // Shield absorbs one hit
     if (gameState.hasShield) {
@@ -753,9 +1046,20 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Lose a life
+    gameState.lives--;
+    eventBus.emit(Events.LIVES_CHANGED, { lives: gameState.lives });
+    eventBus.emit(Events.PLAYER_HIT);
+
     this.cameras.main.shake(EFFECTS.SHAKE_DURATION, EFFECTS.SHAKE_INTENSITY);
     this.cameras.main.flash(200, 255, 0, 0, false, null, this);
-    this._endGame(false);
+
+    if (gameState.lives <= 0) {
+      this._endGame(false);
+    } else {
+      // Respawn with invincibility
+      this._respawnPlayer();
+    }
   }
 
   _onReachDoor() {
@@ -786,13 +1090,33 @@ export default class GameScene extends Phaser.Scene {
       localStorage.setItem('harrys_world_best_score', gameState.bestScore.toString());
     }
 
-    // Unlock next level
+    // Unlock next level and calculate stars
     if (won) {
       const nextLevel = (gameState.level || 1) + 1;
       if (nextLevel > (gameState.maxLevel || 1)) {
         gameState.maxLevel = nextLevel;
         localStorage.setItem('harrys_world_max_level', gameState.maxLevel.toString());
       }
+
+      // Calculate star rating
+      const totalCollectibles = this._levelData.collectibles.length;
+      const collected = totalCollectibles - this._collectibles.filter(c => c.active).length;
+      const collectRatio = totalCollectibles > 0 ? collected / totalCollectibles : 0;
+
+      let stars = 1; // Always get 1 star for completing
+      if (collectRatio >= 0.5) stars = 2;
+      if (collectRatio >= 0.8 && gameState.lives >= 2) stars = 3;
+
+      // Save best star rating for this level
+      const levelKey = gameState.level || 1;
+      const savedStars = JSON.parse(localStorage.getItem('harrys_world_stars') || '{}');
+      if (!savedStars[levelKey] || stars > savedStars[levelKey]) {
+        savedStars[levelKey] = stars;
+        localStorage.setItem('harrys_world_stars', JSON.stringify(savedStars));
+      }
+      gameState.levelStars = savedStars;
+      gameState._lastStars = stars;
+      gameState._collectRatio = collectRatio;
     }
 
     this.player.die();
@@ -805,6 +1129,60 @@ export default class GameScene extends Phaser.Scene {
       this.scene.stop('HUDScene');
       this.scene.start('GameOverScene');
     });
+  }
+
+  _respawnPlayer() {
+    if (!this.player) return;
+
+    // Determine respawn position
+    const respawnX = gameState.checkpointX > 0 ? gameState.checkpointX : PLAYER.SPAWN_X;
+    const respawnY = gameState.checkpointY > 0 ? gameState.checkpointY : PLAYER.SPAWN_Y;
+
+    // Brief disable then respawn
+    this.player.die(false);
+
+    this.time.delayedCall(400, () => {
+      if (!this.player || this._gameEnded) return;
+
+      this.player.setPosition(respawnX, respawnY);
+      this.player.setActive(true);
+      this.player.setVisible(true);
+      this.player.body.enable = true;
+      this.player.setVelocity(0, 0);
+      this.player.setAlpha(1);
+
+      // Invincibility frames (2 seconds)
+      gameState.isInvincible = true;
+      this._startInvincibilityBlink();
+
+      this.time.delayedCall(2000, () => {
+        gameState.isInvincible = false;
+        this._stopInvincibilityBlink();
+      });
+
+      eventBus.emit(Events.PLAYER_RESPAWN);
+    });
+  }
+
+  _startInvincibilityBlink() {
+    if (this._invincibilityTween) this._invincibilityTween.stop();
+    this._invincibilityTween = this.tweens.add({
+      targets: this.player,
+      alpha: 0.3,
+      duration: 100,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  _stopInvincibilityBlink() {
+    if (this._invincibilityTween) {
+      this._invincibilityTween.stop();
+      this._invincibilityTween = null;
+    }
+    if (this.player) {
+      this.player.setAlpha(1);
+    }
   }
 
   shutdown() {
@@ -826,6 +1204,16 @@ export default class GameScene extends Phaser.Scene {
     if (this._shieldGfx) {
       this._shieldGfx.destroy();
       this._shieldGfx = null;
+    }
+
+    if (this._freezeOverlay) {
+      this._freezeOverlay.destroy();
+      this._freezeOverlay = null;
+    }
+
+    if (this._invincibilityTween) {
+      this._invincibilityTween.stop();
+      this._invincibilityTween = null;
     }
   }
 }

@@ -5,6 +5,7 @@ import { GAME, COLORS, HUD, EFFECTS, UI, SAFE_ZONE } from '../core/Constants.js'
 import eventBus, { Events } from '../core/EventBus.js';
 import gameState from '../core/GameState.js';
 import audioManager from '../core/AudioManager.js';
+import { getLevelData } from '../core/LevelData.js';
 
 export default class HUDScene extends Phaser.Scene {
   constructor() {
@@ -35,6 +36,11 @@ export default class HUDScene extends Phaser.Scene {
       strokeThickness: Math.round(2 * GAME.PX),
     }).setDepth(100).setScrollFactor(0);
 
+    // Lives display (hearts, below score)
+    this._heartsContainer = this.add.container(pad, top + Math.round(38 * GAME.PX)).setDepth(100).setScrollFactor(0);
+    this._drawHearts();
+
+
     // Timer text (top-center)
     this._timerText = this.add.text(GAME.WIDTH / 2, top, gameState.timeLeft + 's', {
       fontFamily: UI.FONT_FAMILY,
@@ -44,6 +50,22 @@ export default class HUDScene extends Phaser.Scene {
       stroke: COLORS.TEXT_SHADOW,
       strokeThickness: Math.round(2 * GAME.PX),
     }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
+
+    // Collectible counter (top-right area, below combo)
+    this._collectText = this.add.text(GAME.WIDTH - pad, top + Math.round(36 * GAME.PX), '', {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(12 * GAME.PX) + 'px',
+      color: '#AAAAAA',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(1 * GAME.PX),
+    }).setOrigin(1, 0).setDepth(100).setScrollFactor(0);
+    this._collected = 0;
+    this._totalCollectibles = 0;
+
+    // Get total collectibles from level data
+    const levelData = getLevelData(gameState.level || 1);
+    this._totalCollectibles = levelData.collectibles ? levelData.collectibles.length : 0;
+    this._collectText.setText('0/' + this._totalCollectibles);
 
     // Combo text (top-right)
     this._comboText = this.add.text(GAME.WIDTH - pad, top, '', {
@@ -59,6 +81,10 @@ export default class HUDScene extends Phaser.Scene {
     this._timerTween = null;
 
     // EventBus listeners
+    this._onLivesChanged = () => {
+      this._drawHearts();
+    };
+
     this._onScoreChanged = ({ score }) => {
       this._scoreText.setText('Score: ' + score);
     };
@@ -99,12 +125,15 @@ export default class HUDScene extends Phaser.Scene {
       if (gameState.combo < 3) {
         this._comboText.setText('');
       }
+      this._collected++;
+      this._collectText.setText(this._collected + '/' + this._totalCollectibles);
     };
 
     this._onGameOver = () => {
       if (this._timerTween) this._timerTween.stop();
     };
 
+    eventBus.on(Events.LIVES_CHANGED, this._onLivesChanged);
     eventBus.on(Events.SCORE_CHANGED, this._onScoreChanged);
     eventBus.on(Events.TIME_UPDATE, this._onTimeUpdate);
     eventBus.on(Events.SPECTACLE_COMBO, this._onCombo);
@@ -114,11 +143,34 @@ export default class HUDScene extends Phaser.Scene {
     this.events.on('shutdown', this.shutdown, this);
   }
 
+  _drawHearts() {
+    this._heartsContainer.removeAll(true);
+    const heartSize = Math.round(10 * GAME.PX);
+    const spacing = Math.round(14 * GAME.PX);
+    for (let i = 0; i < gameState.maxLives; i++) {
+      const isFilled = i < gameState.lives;
+      const heart = this.add.graphics();
+      if (isFilled) {
+        heart.fillStyle(0xF44336, 1);
+      } else {
+        heart.fillStyle(0x666666, 0.5);
+      }
+      // Draw heart shape
+      const hx = i * spacing;
+      const r = heartSize * 0.45;
+      heart.fillCircle(hx + r, 0, r);
+      heart.fillCircle(hx + heartSize - r, 0, r);
+      heart.fillTriangle(hx, r * 0.5, hx + heartSize, r * 0.5, hx + heartSize / 2, heartSize);
+      this._heartsContainer.add(heart);
+    }
+  }
+
   shutdown() {
     if (this._timerTween) {
       this._timerTween.stop();
       this._timerTween = null;
     }
+    eventBus.off(Events.LIVES_CHANGED, this._onLivesChanged);
     eventBus.off(Events.SCORE_CHANGED, this._onScoreChanged);
     eventBus.off(Events.TIME_UPDATE, this._onTimeUpdate);
     eventBus.off(Events.SPECTACLE_COMBO, this._onCombo);

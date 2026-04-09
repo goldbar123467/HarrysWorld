@@ -4,3 +4,4 @@ output/
 playwright-report/
 test-results/
 screenshots/
+screenshot-*.png

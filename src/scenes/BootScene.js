@@ -14,6 +14,8 @@ import {
   WALL_PIXELS, WALL_SCALE,
   LOCKER_PIXELS, LOCKER_SCALE,
 } from '../sprites/tiles.js';
+import { CHECKPOINT_PIXELS, CHECKPOINT_ACTIVE_PIXELS, CHECKPOINT_SCALE } from '../sprites/checkpoint.js';
+import { VICE_PRINCIPAL_FRAMES, VICE_PRINCIPAL_SCALE } from '../sprites/vice_principal.js';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -46,6 +48,13 @@ export default class BootScene extends Phaser.Scene {
     // Background tiles
     renderPixelArt(this, WALL_PIXELS, PALETTE, 'wall', WALL_SCALE);
     renderPixelArt(this, LOCKER_PIXELS, PALETTE, 'locker', LOCKER_SCALE);
+
+    // Vice Principal spritesheet (2 frames)
+    renderSpriteSheet(this, VICE_PRINCIPAL_FRAMES, PALETTE, 'vice_principal', VICE_PRINCIPAL_SCALE);
+
+    // Checkpoint flag
+    renderPixelArt(this, CHECKPOINT_PIXELS, PALETTE, 'checkpoint', CHECKPOINT_SCALE);
+    renderPixelArt(this, CHECKPOINT_ACTIVE_PIXELS, PALETTE, 'checkpoint_active', CHECKPOINT_SCALE);
 
     // Touch buttons (kept as procedural graphics)
     this._generateTouchButtons();
@@ -82,6 +91,16 @@ export default class BootScene extends Phaser.Scene {
         key: 'monitor_walk_anim',
         frames: this.anims.generateFrameNumbers('hall_monitor', { start: 0, end: 1 }),
         frameRate: 4,
+        repeat: -1,
+      });
+    }
+
+    // Vice Principal walk animation
+    if (!this.anims.exists('vp_walk_anim')) {
+      this.anims.create({
+        key: 'vp_walk_anim',
+        frames: this.anims.generateFrameNumbers('vice_principal', { start: 0, end: 1 }),
+        frameRate: 5,
         repeat: -1,
       });
     }
