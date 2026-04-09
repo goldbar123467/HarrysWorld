@@ -10,6 +10,11 @@ const gameState = {
   gameOver: false,
   started: false,
   won: false,
+  level: 1,
+  maxLevel: 1,
+  hasShield: false,
+  hasSpeedBoost: false,
+  hasTimeFreeze: false,
 
   reset() {
     this.score = 0;
@@ -19,7 +24,10 @@ const gameState = {
     this.gameOver = false;
     this.started = false;
     this.won = false;
-    // bestScore persists across resets
+    this.hasShield = false;
+    this.hasSpeedBoost = false;
+    this.hasTimeFreeze = false;
+    // bestScore, level, maxLevel persist across resets
   },
 };
 

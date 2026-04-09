@@ -18,6 +18,8 @@ export const Events = {
   SPECTACLE_STREAK: 'spectacle:streak',
   SPECTACLE_NEAR_MISS: 'spectacle:nearMiss',
   TIME_UPDATE: 'time:update',
+  GAME_PAUSE: 'game:pause',
+  GAME_RESUME: 'game:resume',
 };
 
 const eventBus = new Phaser.Events.EventEmitter();

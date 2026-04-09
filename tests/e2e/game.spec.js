@@ -43,6 +43,7 @@ async function triggerGameOverAndRestart(page) {
     const eventBus = window.__EVENT_BUS__;
     const Events = window.__EVENTS__;
     gs.reset();
+    gs.level = gs.level || 1;
     eventBus.emit(Events.GAME_RESTART);
     const gameOverScene = window.__GAME__.scene.getScene('GameOverScene');
     gameOverScene.scene.start('GameScene');
@@ -162,10 +163,10 @@ test.describe('Game Freeze Prevention', () => {
 
     await page.waitForTimeout(2000);
 
-    // Check that _restarting flag exists on GameOverScene
+    // Check that _transitioning flag exists on GameOverScene
     const hasFlag = await page.evaluate(() => {
       const scene = window.__GAME__.scene.getScene('GameOverScene');
-      return '_restarting' in scene;
+      return '_transitioning' in scene;
     });
     expect(hasFlag).toBe(true);
   });
