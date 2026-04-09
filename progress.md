@@ -78,12 +78,12 @@ Full audit in `AUDIT_REPORT.md`. Tracking fix status here:
 - [x] #31 — Audio system implemented (AudioManager.js)
 
 ### Remaining — Phase 1 (Quick Wins)
-- [ ] #1 — Player death visual feedback (HIGH, Priority 4.50)
-- [ ] #2 — Combo score multiplier (HIGH, Priority 4.00)
+- [x] #1 — Player death visual feedback (HIGH, Priority 4.50) — FIXED
+- [x] #2 — Combo score multiplier (HIGH, Priority 4.00) — FIXED
 - [ ] #5 — Jump bunny-hop fix / rising-edge detection (HIGH, Priority 3.50)
 - [ ] #10 — Obstacle origin/body mismatch (MEDIUM, Priority 3.00)
-- [ ] #13 — PLAYER_DIED fires every frame (MEDIUM, Priority 4.00)
-- [ ] #22 — Camera deadzone (MEDIUM, Priority 5.00)
+- [x] #13 — PLAYER_DIED fires every frame (MEDIUM, Priority 4.00) — FIXED
+- [x] #22 — Camera deadzone (MEDIUM, Priority 5.00) — FIXED
 - [ ] #25 — Tab switch pause timer (MEDIUM, Priority 2.50)
 
 ### Remaining — Phase 2 (Important)
@@ -129,4 +129,26 @@ Track each improvement cycle here. Format:
 - **Status**: DONE
 ```
 
-_(No cycles run yet — use "run improvements" to start)_
+### Cycle 1 — 2026-04-09
+- **Finding**: #1 — Player death has zero visual feedback
+- **Skill Used**: /improve-game (direct fix)
+- **Changes**: `src/entities/Player.js` — Added `_isDead` guard, flash/blink death animation (5 flashes), red tint, rise-and-spin-off-screen death fall. `src/scenes/GameScene.js` — Added `_emitDeathParticles()` with 12 red sparkle particles on death, delayed scene transition to wait for death anim. `src/core/Constants.js` — Added DEATH_FLASH_COUNT, DEATH_FLASH_DURATION, DEATH_RISE_VELOCITY, DEATH_SPIN_SPEED, DEATH_ANIM_DURATION, DEATH_PARTICLE_COUNT, DEATH_PARTICLE_SPEED, DEATH_PARTICLE_LIFESPAN.
+- **Status**: DONE
+
+### Cycle 2 — 2026-04-09
+- **Finding**: #13 — PLAYER_DIED fires every frame off-screen
+- **Skill Used**: /improve-game (direct fix)
+- **Changes**: `src/entities/Player.js` — Added `_isDead` flag, guarded both the fall-off-world emit and `die()` to fire only once.
+- **Status**: DONE
+
+### Cycle 3 — 2026-04-09
+- **Finding**: #2 — Combo system has no score multiplier
+- **Skill Used**: /improve-game (direct fix)
+- **Changes**: `src/scenes/GameScene.js` — Score now multiplied by combo count (`value * combo`). Popup shows multiplied value with combo indicator (e.g. "+50 (2x)"). Color scales with combo level: gold (1x), orange (3x+), red (5x+). Higher combo = larger popup font.
+- **Status**: DONE
+
+### Cycle 4 — 2026-04-09
+- **Finding**: #22 — No camera deadzone
+- **Skill Used**: /improve-game (direct fix)
+- **Changes**: `src/scenes/GameScene.js` — Added `setDeadzone(WIDTH * 0.15, HEIGHT * 0.25)` after `startFollow`. Camera now ignores small player movements, eliminating jitter.
+- **Status**: DONE

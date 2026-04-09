@@ -55,8 +55,9 @@ export default class GameScene extends Phaser.Scene {
     // Player
     this.player = new Player(this, PLAYER.SPAWN_X, PLAYER.SPAWN_Y);
 
-    // Camera follow
+    // Camera follow with deadzone to prevent jitter on small movements
     this.cameras.main.startFollow(this.player, true, 0.1, 0.05);
+    this.cameras.main.setDeadzone(Math.round(GAME.WIDTH * 0.15), Math.round(GAME.HEIGHT * 0.25));
 
     // Collisions
     this.physics.add.collider(this.player, this._groundGroup);
@@ -614,8 +615,6 @@ export default class GameScene extends Phaser.Scene {
 
     this._emitSparkles(collectible.x, collectible.y);
 
-    gameState.score += collectible.scoreValue;
-
     // Combo
     if (now - this._lastCollectTime < 2000) {
       gameState.combo++;
@@ -628,12 +627,23 @@ export default class GameScene extends Phaser.Scene {
     }
     this._lastCollectTime = now;
 
-    // Score popup
-    const flash = this.add.text(collectible.x, collectible.y, '+' + collectible.scoreValue, {
+    // Apply combo multiplier to score
+    const comboMultiplier = Math.max(1, gameState.combo);
+    const earnedPoints = collectible.scoreValue * comboMultiplier;
+    gameState.score += earnedPoints;
+
+    // Score popup — show multiplied value and combo indicator
+    const popupText = comboMultiplier > 1
+      ? `+${earnedPoints} (${comboMultiplier}x)`
+      : `+${collectible.scoreValue}`;
+    const popupColor = comboMultiplier >= 5 ? '#FF4444' : comboMultiplier >= 3 ? '#FF8800' : '#FFD700';
+    const flash = this.add.text(collectible.x, collectible.y, popupText, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: Math.round(20 * GAME.PX) + 'px',
-      color: '#FFD700',
+      fontSize: Math.round((comboMultiplier > 1 ? 24 : 20) * GAME.PX) + 'px',
+      color: popupColor,
       fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: comboMultiplier > 1 ? Math.round(2 * GAME.PX) : 0,
     }).setOrigin(0.5).setDepth(20);
 
     this.tweens.add({
@@ -644,7 +654,7 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => flash.destroy(),
     });
 
-    eventBus.emit(Events.ITEM_COLLECTED, { type: collectible.collectibleType, score: collectible.scoreValue });
+    eventBus.emit(Events.ITEM_COLLECTED, { type: collectible.collectibleType, score: earnedPoints });
     eventBus.emit(Events.SCORE_CHANGED, { score: gameState.score });
     eventBus.emit(Events.SPECTACLE_HIT, { item: collectible.collectibleType });
   }
@@ -775,6 +785,25 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  _emitDeathParticles(x, y) {
+    for (let i = 0; i < EFFECTS.DEATH_PARTICLE_COUNT; i++) {
+      const particle = this.add.image(x, y, 'sparkle_particle').setDepth(15).setAlpha(1).setTint(0xFF4444);
+      const angle = (Math.PI * 2 / EFFECTS.DEATH_PARTICLE_COUNT) * i + (Math.random() - 0.5) * 0.5;
+      const speed = EFFECTS.DEATH_PARTICLE_SPEED * (0.5 + Math.random() * 0.5);
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * speed,
+        y: y + Math.sin(angle) * speed,
+        alpha: 0,
+        scaleX: 0.2,
+        scaleY: 0.2,
+        duration: EFFECTS.DEATH_PARTICLE_LIFESPAN,
+        ease: 'Quad.easeOut',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
   _endGame(won) {
     if (this._gameEnded) return;
     this._gameEnded = true;
@@ -795,16 +824,32 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    this.player.die();
     this._timerEvent.destroy();
-
     eventBus.emit(Events.GAME_OVER, { won, score: gameState.score });
 
-    this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
-    this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
-      this.scene.stop('HUDScene');
-      this.scene.start('GameOverScene');
-    });
+    if (!won && this.player && this.player.visible) {
+      // Death: emit particles, then play death animation, delay scene transition
+      this._emitDeathParticles(this.player.x, this.player.y);
+      this.player.die();
+
+      // Wait for death animation to finish before fading out
+      const deathDelay = EFFECTS.DEATH_FLASH_COUNT * 2 * EFFECTS.DEATH_FLASH_DURATION + EFFECTS.DEATH_ANIM_DURATION;
+      this.time.delayedCall(deathDelay, () => {
+        this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
+        this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+          this.scene.stop('HUDScene');
+          this.scene.start('GameOverScene');
+        });
+      });
+    } else {
+      // Win or already dead: immediate transition
+      this.player.die();
+      this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
+      this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+        this.scene.stop('HUDScene');
+        this.scene.start('GameOverScene');
+      });
+    }
   }
 
   shutdown() {
