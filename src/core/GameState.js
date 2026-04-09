@@ -15,6 +15,9 @@ const gameState = {
   hasShield: false,
   hasSpeedBoost: false,
   hasTimeFreeze: false,
+  levelStars: {}, // { 1: 3, 2: 2, ... } stars earned per level
+  totalCollected: 0,
+  totalCollectibles: 0,
 
   reset() {
     this.score = 0;
@@ -27,7 +30,28 @@ const gameState = {
     this.hasShield = false;
     this.hasSpeedBoost = false;
     this.hasTimeFreeze = false;
-    // bestScore, level, maxLevel persist across resets
+    this.totalCollected = 0;
+    this.totalCollectibles = 0;
+    // bestScore, level, maxLevel, levelStars persist across resets
+  },
+
+  loadStars() {
+    try {
+      const saved = localStorage.getItem('harrys_world_stars');
+      if (saved) this.levelStars = JSON.parse(saved);
+    } catch (e) { /* ignore */ }
+  },
+
+  saveStars(level, stars) {
+    const current = this.levelStars[level] || 0;
+    if (stars > current) {
+      this.levelStars[level] = stars;
+      localStorage.setItem('harrys_world_stars', JSON.stringify(this.levelStars));
+    }
+  },
+
+  getTotalStars() {
+    return Object.values(this.levelStars).reduce((sum, s) => sum + s, 0);
   },
 };
 

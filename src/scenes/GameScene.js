@@ -11,6 +11,7 @@ import Player from '../entities/Player.js';
 import ObstacleEntity from '../entities/Obstacle.js';
 import CollectibleEntity from '../entities/Collectible.js';
 import HallMonitor from '../entities/HallMonitor.js';
+import PaperAirplane from '../entities/PaperAirplane.js';
 import audioManager from '../core/AudioManager.js';
 
 export default class GameScene extends Phaser.Scene {
@@ -50,7 +51,14 @@ export default class GameScene extends Phaser.Scene {
     this._createCollectibles();
     this._createPowerups();
     this._createHallMonitors();
+    this._createPaperAirplanes();
     this._createDoor(levelWidth);
+
+    // Moving platforms
+    this._createMovingPlatforms();
+
+    // Checkpoints
+    this._createCheckpoints();
 
     // Player
     this.player = new Player(this, PLAYER.SPAWN_X, PLAYER.SPAWN_Y);
@@ -64,13 +72,22 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this._obstacleGroup);
     this.physics.add.collider(this._monitorGroup, this._groundGroup);
     this.physics.add.collider(this._monitorGroup, this._platformGroup);
+    if (this._movingPlatformGroup) {
+      this.physics.add.collider(this.player, this._movingPlatformGroup);
+    }
 
     // Overlaps
     this.physics.add.overlap(this.player, this._collectibleGroup, this._onCollect, null, this);
     this.physics.add.overlap(this.player, this._monitorGroup, this._onHitMonitor, null, this);
+    if (this._airplaneGroup) {
+      this.physics.add.overlap(this.player, this._airplaneGroup, this._onHitMonitor, null, this);
+    }
     this.physics.add.overlap(this.player, this._doorSprite, this._onReachDoor, null, this);
     if (this._powerupGroup) {
       this.physics.add.overlap(this.player, this._powerupGroup, this._onPowerup, null, this);
+    }
+    if (this._checkpointGroup) {
+      this.physics.add.overlap(this.player, this._checkpointGroup, this._onCheckpoint, null, this);
     }
 
     // Keyboard
@@ -228,32 +245,203 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _createBackground(levelWidth) {
-    const wallTexture = this.textures.get('wall');
-    const wallFrame = wallTexture.getSourceImage();
-    const tileW = wallFrame.width;
-    const tileH = wallFrame.height;
-    const numTilesX = Math.ceil(levelWidth / tileW) + 1;
-    const numTilesY = Math.ceil(GAME.GROUND_Y / tileH) + 1;
+    const theme = this._levelData.theme || {
+      wallColor: 0xE8E0D4, wallAccent: 0xD4C5A9,
+      lockerColors: [0x4A90D9, 0x5BA0E9], trimColor: 0x8B7355, ceilingColor: 0xF5F5F0,
+    };
 
-    for (let ix = 0; ix < numTilesX; ix++) {
-      for (let iy = 0; iy < numTilesY; iy++) {
-        const wx = ix * tileW + tileW / 2;
-        const wy = iy * tileH + tileH / 2;
-        if (wy - tileH / 2 < GAME.GROUND_Y) {
-          this.add.image(wx, wy, 'wall').setDepth(-10);
-        }
-      }
+    // --- Solid wall background (colored per level) ---
+    const wallBg = this.add.graphics().setDepth(-12);
+    wallBg.fillStyle(theme.wallColor, 1);
+    wallBg.fillRect(0, 0, levelWidth, GAME.GROUND_Y);
+
+    // --- Ceiling strip ---
+    const ceilH = Math.round(20 * GAME.PX);
+    wallBg.fillStyle(theme.ceilingColor, 1);
+    wallBg.fillRect(0, 0, levelWidth, ceilH);
+
+    // Crown molding line
+    wallBg.fillStyle(theme.trimColor, 1);
+    wallBg.fillRect(0, ceilH, levelWidth, Math.round(4 * GAME.PX));
+
+    // --- Wainscoting (lower wall panel) ---
+    const wainscotY = GAME.GROUND_Y * 0.62;
+    const wainscotH = GAME.GROUND_Y - wainscotY;
+    wallBg.fillStyle(theme.wallAccent, 1);
+    wallBg.fillRect(0, wainscotY, levelWidth, wainscotH);
+
+    // Chair rail (divider line)
+    wallBg.fillStyle(theme.trimColor, 1);
+    wallBg.fillRect(0, wainscotY, levelWidth, Math.round(3 * GAME.PX));
+
+    // Baseboard
+    wallBg.fillStyle(theme.trimColor, 1);
+    wallBg.fillRect(0, GAME.GROUND_Y - Math.round(6 * GAME.PX), levelWidth, Math.round(6 * GAME.PX));
+
+    // --- Tile grid pattern on wall (subtle) ---
+    const gridGfx = this.add.graphics().setDepth(-11).setAlpha(0.06);
+    const gridSpacing = Math.round(48 * GAME.PX);
+    gridGfx.lineStyle(1, 0x000000);
+    for (let x = 0; x < levelWidth; x += gridSpacing) {
+      gridGfx.lineBetween(x, ceilH, x, wainscotY);
+    }
+    for (let y = ceilH; y < wainscotY; y += gridSpacing) {
+      gridGfx.lineBetween(0, y, levelWidth, y);
     }
 
-    const lockerTexture = this.textures.get('locker');
-    const lockerFrame = lockerTexture.getSourceImage();
-    const lockerH = lockerFrame.height;
-    const lockerSpacing = 200;
-    const lockerY = GAME.GROUND_Y - lockerH / 2;
+    // --- Colored Lockers ---
+    const lockerGfx = this.add.graphics().setDepth(-5);
+    const lockerW = Math.round(22 * GAME.PX);
+    const lockerH = Math.round(70 * GAME.PX);
+    const lockerSpacing = Math.round(120 * GAME.PX);
+    const lockerY = GAME.GROUND_Y - lockerH - Math.round(6 * GAME.PX);
     const numLockers = Math.ceil(levelWidth / lockerSpacing);
 
     for (let i = 0; i < numLockers; i++) {
-      this.add.image(i * lockerSpacing + lockerSpacing / 2, lockerY, 'locker').setDepth(-5);
+      const lx = i * lockerSpacing + Math.round(40 * GAME.PX);
+      const color = theme.lockerColors[i % theme.lockerColors.length];
+      const darkColor = Phaser.Display.Color.ValueToColor(color).darken(20).color;
+
+      // Locker body
+      lockerGfx.fillStyle(color, 1);
+      lockerGfx.fillRect(lx, lockerY, lockerW, lockerH);
+      // Locker border
+      lockerGfx.lineStyle(Math.round(1.5 * GAME.PX), darkColor);
+      lockerGfx.strokeRect(lx, lockerY, lockerW, lockerH);
+      // Divider line (two locker doors)
+      lockerGfx.lineBetween(lx, lockerY + lockerH / 2, lx + lockerW, lockerY + lockerH / 2);
+      // Handle dots
+      const handleX = lx + lockerW * 0.7;
+      lockerGfx.fillStyle(0xC0C0C0, 1);
+      lockerGfx.fillCircle(handleX, lockerY + lockerH * 0.3, Math.round(2 * GAME.PX));
+      lockerGfx.fillCircle(handleX, lockerY + lockerH * 0.7, Math.round(2 * GAME.PX));
+      // Vent slots (top of each door)
+      lockerGfx.fillStyle(darkColor, 0.4);
+      for (let s = 0; s < 3; s++) {
+        const sy = lockerY + Math.round(6 * GAME.PX) + s * Math.round(4 * GAME.PX);
+        lockerGfx.fillRect(lx + Math.round(4 * GAME.PX), sy, lockerW * 0.5, Math.round(1.5 * GAME.PX));
+      }
+    }
+
+    // --- Wall Decorations ---
+    this._createWallDecorations(levelWidth, theme, ceilH, wainscotY);
+  }
+
+  _createWallDecorations(levelWidth, theme, ceilH, wainscotY) {
+    const decoGfx = this.add.graphics().setDepth(-6);
+    const px = GAME.PX;
+
+    // Decoration spacing
+    const sectionWidth = Math.round(400 * px);
+    const numSections = Math.ceil(levelWidth / sectionWidth);
+    const decoTypes = ['clock', 'poster', 'bulletin', 'exitSign', 'poster2', 'trophy'];
+
+    for (let i = 0; i < numSections; i++) {
+      const baseX = i * sectionWidth + sectionWidth / 2;
+      const type = decoTypes[i % decoTypes.length];
+      const upperY = ceilH + (wainscotY - ceilH) * 0.45;
+
+      if (type === 'clock') {
+        // Wall clock
+        const r = Math.round(18 * px);
+        decoGfx.fillStyle(0xFAFAFA, 1);
+        decoGfx.fillCircle(baseX, upperY, r);
+        decoGfx.lineStyle(Math.round(2 * px), 0x333333);
+        decoGfx.strokeCircle(baseX, upperY, r);
+        // Clock hands
+        decoGfx.lineStyle(Math.round(2 * px), 0x333333);
+        decoGfx.lineBetween(baseX, upperY, baseX, upperY - r * 0.6); // minute
+        decoGfx.lineBetween(baseX, upperY, baseX + r * 0.4, upperY + r * 0.1); // hour
+        // Hour marks
+        for (let h = 0; h < 12; h++) {
+          const angle = (h / 12) * Math.PI * 2 - Math.PI / 2;
+          const mx = baseX + Math.cos(angle) * r * 0.8;
+          const my = upperY + Math.sin(angle) * r * 0.8;
+          decoGfx.fillStyle(0x333333, 1);
+          decoGfx.fillCircle(mx, my, Math.round(1.5 * px));
+        }
+      } else if (type === 'poster' || type === 'poster2') {
+        // Colorful school poster
+        const w = Math.round(45 * px);
+        const h = Math.round(55 * px);
+        const colors = type === 'poster'
+          ? [0xFF7043, 0xFFEB3B, 0x4FC3F7] // orange/yellow/blue
+          : [0x66BB6A, 0xAB47BC, 0xFFA726]; // green/purple/orange
+        const posterColor = colors[i % colors.length];
+        // Paper shadow
+        decoGfx.fillStyle(0x000000, 0.1);
+        decoGfx.fillRect(baseX - w / 2 + 2, upperY - h / 2 + 2, w, h);
+        // Poster body
+        decoGfx.fillStyle(posterColor, 1);
+        decoGfx.fillRect(baseX - w / 2, upperY - h / 2, w, h);
+        // Border
+        decoGfx.lineStyle(Math.round(1 * px), 0x333333, 0.3);
+        decoGfx.strokeRect(baseX - w / 2, upperY - h / 2, w, h);
+        // Text lines
+        decoGfx.fillStyle(0xFFFFFF, 0.8);
+        for (let line = 0; line < 3; line++) {
+          const lw = w * (0.5 + Math.random() * 0.3);
+          decoGfx.fillRect(baseX - lw / 2, upperY - h / 4 + line * Math.round(10 * px), lw, Math.round(3 * px));
+        }
+        // Thumb tack
+        decoGfx.fillStyle(0xF44336, 1);
+        decoGfx.fillCircle(baseX, upperY - h / 2 - Math.round(1 * px), Math.round(3 * px));
+      } else if (type === 'bulletin') {
+        // Bulletin board
+        const w = Math.round(70 * px);
+        const h = Math.round(50 * px);
+        // Cork background
+        decoGfx.fillStyle(0xD4A76A, 1);
+        decoGfx.fillRect(baseX - w / 2, upperY - h / 2, w, h);
+        // Wood frame
+        decoGfx.lineStyle(Math.round(3 * px), 0x795548);
+        decoGfx.strokeRect(baseX - w / 2, upperY - h / 2, w, h);
+        // Pinned papers
+        const paperColors = [0xFFFFFF, 0xFFF9C4, 0xE1F5FE, 0xFCE4EC, 0xE8F5E9];
+        for (let p = 0; p < 5; p++) {
+          const pw = Math.round((12 + Math.random() * 10) * px);
+          const ph = Math.round((10 + Math.random() * 12) * px);
+          const ppx = baseX - w / 3 + Math.random() * w * 0.6;
+          const ppy = upperY - h / 3 + Math.random() * h * 0.5;
+          decoGfx.fillStyle(paperColors[p % paperColors.length], 0.9);
+          decoGfx.fillRect(ppx, ppy, pw, ph);
+          // Pin
+          decoGfx.fillStyle([0xF44336, 0x2196F3, 0x4CAF50, 0xFFEB3B, 0xFF9800][p % 5], 1);
+          decoGfx.fillCircle(ppx + pw / 2, ppy, Math.round(2 * px));
+        }
+      } else if (type === 'exitSign') {
+        // Exit sign
+        const w = Math.round(50 * px);
+        const h = Math.round(18 * px);
+        const signY = ceilH + Math.round(20 * px);
+        decoGfx.fillStyle(0xC62828, 1);
+        decoGfx.fillRect(baseX - w / 2, signY, w, h);
+        // We'll add the text separately since graphics can't render text
+        this.add.text(baseX, signY + h / 2, 'EXIT', {
+          fontFamily: UI.FONT_FAMILY,
+          fontSize: Math.round(10 * px) + 'px',
+          color: '#FFFFFF',
+          fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(-5);
+      } else if (type === 'trophy') {
+        // Trophy case (glass cabinet)
+        const w = Math.round(55 * px);
+        const h = Math.round(50 * px);
+        // Cabinet
+        decoGfx.fillStyle(0x5D4037, 1);
+        decoGfx.fillRect(baseX - w / 2, upperY - h / 2, w, h);
+        // Glass
+        decoGfx.fillStyle(0xBBDEFB, 0.3);
+        decoGfx.fillRect(baseX - w / 2 + Math.round(4 * px), upperY - h / 2 + Math.round(4 * px),
+          w - Math.round(8 * px), h - Math.round(8 * px));
+        // Trophy shape
+        decoGfx.fillStyle(0xFFD700, 1);
+        const ty = upperY - Math.round(5 * px);
+        decoGfx.fillRect(baseX - Math.round(4 * px), ty, Math.round(8 * px), Math.round(12 * px));
+        decoGfx.fillCircle(baseX, ty - Math.round(2 * px), Math.round(6 * px));
+        // Base
+        decoGfx.fillRect(baseX - Math.round(6 * px), ty + Math.round(12 * px), Math.round(12 * px), Math.round(3 * px));
+      }
     }
   }
 
@@ -289,6 +477,86 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  _createMovingPlatforms() {
+    const movingData = this._levelData.movingPlatforms;
+    if (!movingData || movingData.length === 0) return;
+
+    this._movingPlatformGroup = this.physics.add.staticGroup();
+    this._movingPlatforms = [];
+
+    movingData.forEach((data) => {
+      const px = Math.round(data.x * this._levelWidth);
+      const py = Math.round(data.y * GAME.HEIGHT);
+      const pw = Math.round((data.w || 100) * GAME.PX);
+      const ph = Math.round(16 * GAME.PX);
+
+      const plat = this._movingPlatformGroup.create(px, py, 'platform');
+      plat.setDisplaySize(pw, ph);
+      plat.refreshBody();
+
+      // Add an indicator arrow below the platform
+      const indicator = this.add.graphics().setDepth(2);
+      if (data.rangeX) {
+        // Horizontal arrows
+        const arrowSize = Math.round(4 * GAME.PX);
+        indicator.fillStyle(0xFFFFFF, 0.3);
+        indicator.fillTriangle(px - pw / 2 - arrowSize, py, px - pw / 2, py - arrowSize, px - pw / 2, py + arrowSize);
+        indicator.fillTriangle(px + pw / 2 + arrowSize, py, px + pw / 2, py - arrowSize, px + pw / 2, py + arrowSize);
+      }
+
+      plat._startX = px;
+      plat._startY = py;
+      plat._rangeX = data.rangeX ? Math.round(data.rangeX * this._levelWidth) : 0;
+      plat._rangeY = data.rangeY ? Math.round(data.rangeY * GAME.HEIGHT) : 0;
+      plat._speed = data.speed || 0.5;
+      plat._indicator = indicator;
+
+      this._movingPlatforms.push(plat);
+    });
+  }
+
+  _createCheckpoints() {
+    const checkpointData = this._levelData.checkpoints;
+    if (!checkpointData || checkpointData.length === 0) return;
+
+    this._checkpointGroup = this.physics.add.staticGroup();
+    this._checkpoints = [];
+    this._lastCheckpointX = PLAYER.SPAWN_X;
+
+    checkpointData.forEach((xFrac, i) => {
+      const cx = Math.round(xFrac * this._levelWidth);
+      const cy = GAME.GROUND_Y;
+      const flagH = Math.round(60 * GAME.PX);
+      const flagW = Math.round(25 * GAME.PX);
+
+      // Flag pole
+      const pole = this.add.rectangle(cx, cy - flagH / 2, Math.round(3 * GAME.PX), flagH, 0x795548)
+        .setDepth(3);
+
+      // Flag triangle
+      const flag = this.add.graphics().setDepth(3);
+      flag.fillStyle(0x4CAF50, 0.8);
+      flag.fillTriangle(
+        cx + Math.round(2 * GAME.PX), cy - flagH + Math.round(5 * GAME.PX),
+        cx + flagW, cy - flagH + Math.round(18 * GAME.PX),
+        cx + Math.round(2 * GAME.PX), cy - flagH + Math.round(30 * GAME.PX)
+      );
+
+      // Invisible collision zone
+      const zone = this._checkpointGroup.create(cx, cy - flagH / 2, null);
+      zone.setVisible(false);
+      zone.body.setSize(Math.round(40 * GAME.PX), flagH);
+      zone.body.updateFromGameObject();
+      zone._checkpointIndex = i;
+      zone._activated = false;
+      zone._pole = pole;
+      zone._flag = flag;
+      zone._x = cx;
+
+      this._checkpoints.push(zone);
+    });
+  }
+
   _createObstacles(levelWidth) {
     this._obstacleGroup = this.physics.add.staticGroup();
 
@@ -311,6 +579,8 @@ export default class GameScene extends Phaser.Scene {
       this._collectibleGroup.add(col);
       this._collectibles.push(col);
     });
+    gameState.totalCollectibles = this._collectibles.length;
+    gameState.totalCollected = 0;
   }
 
   _createPowerups() {
@@ -404,6 +674,27 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  _createPaperAirplanes() {
+    const airplaneData = this._levelData.paperAirplanes;
+    if (!airplaneData || airplaneData.length === 0) return;
+
+    this._airplaneGroup = this.physics.add.group();
+    this._airplanes = [];
+
+    airplaneData.forEach((data) => {
+      const ax = Math.round(data.x * this._levelWidth);
+      const ay = Math.round(data.y * GAME.HEIGHT);
+      const airplane = new PaperAirplane(this, ax, ay, {
+        amplitude: Math.round((data.amplitude || 30) * GAME.PX),
+        speed: Math.round((data.speed || 120) * GAME.PX),
+        range: Math.round((data.range || 250) * GAME.PX),
+        direction: data.direction || 1,
+      });
+      this._airplaneGroup.add(airplane);
+      this._airplanes.push(airplane);
+    });
+  }
+
   _createDoor(levelWidth) {
     const doorW = Math.round(100 * GAME.PX);
     const doorH = Math.round(160 * GAME.PX);
@@ -420,43 +711,121 @@ export default class GameScene extends Phaser.Scene {
       align: 'center',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(4);
+
+    // Pulsing glow around door
+    const glowSize = Math.max(doorW, doorH) * 0.8;
+    const doorGlow = this.add.circle(doorX, doorY, glowSize, 0x4CAF50, 0.12).setDepth(2);
+    this.tweens.add({
+      targets: doorGlow,
+      alpha: 0.25,
+      scaleX: 1.15,
+      scaleY: 1.15,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Arrow indicator above door
+    const arrowY = doorY - doorH / 2 - Math.round(20 * GAME.PX);
+    const doorArrow = this.add.text(doorX, arrowY, '\u25BC', {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(20 * GAME.PX) + 'px',
+      color: '#4CAF50',
+    }).setOrigin(0.5).setDepth(4);
+    this.tweens.add({
+      targets: doorArrow,
+      y: arrowY + Math.round(8 * GAME.PX),
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   _createParallaxElements() {
+    const px = GAME.PX;
+
     // Floating dust motes in the hallway
     this._dustMotes = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 20; i++) {
       const x = Math.random() * this._levelWidth;
       const y = Math.random() * GAME.GROUND_Y * 0.8;
-      const size = Math.round((2 + Math.random() * 3) * GAME.PX);
-      const mote = this.add.circle(x, y, size, 0xFFFFFF, 0.15 + Math.random() * 0.15)
+      const size = Math.round((1.5 + Math.random() * 2.5) * px);
+      const mote = this.add.circle(x, y, size, 0xFFFFFF, 0.08 + Math.random() * 0.12)
         .setDepth(-3);
-      mote._speed = 0.2 + Math.random() * 0.3;
-      mote._amplitude = 20 + Math.random() * 30;
+      mote._speed = 0.15 + Math.random() * 0.25;
+      mote._amplitude = 15 + Math.random() * 25;
       mote._offset = Math.random() * Math.PI * 2;
       mote._baseY = y;
       this._dustMotes.push(mote);
     }
 
-    // Ceiling lights (fluorescent strip lights)
-    const lightSpacing = Math.round(300 * GAME.PX);
+    // Ceiling lights (fluorescent strip lights with housing)
+    const lightSpacing = Math.round(250 * px);
     const numLights = Math.ceil(this._levelWidth / lightSpacing);
+    this._ceilingLights = [];
     for (let i = 0; i < numLights; i++) {
       const lx = i * lightSpacing + lightSpacing / 2;
-      const lightW = Math.round(60 * GAME.PX);
-      const lightH = Math.round(6 * GAME.PX);
-      const light = this.add.rectangle(lx, Math.round(12 * GAME.PX), lightW, lightH, 0xFFF9C4)
-        .setDepth(-4).setAlpha(0.6);
+      const lightW = Math.round(80 * px);
+      const lightH = Math.round(8 * px);
+      const ceilH = Math.round(20 * px);
+
+      // Light housing (dark gray)
+      this.add.rectangle(lx, ceilH + Math.round(2 * px), lightW + Math.round(8 * px), Math.round(6 * px), 0x616161)
+        .setDepth(-4);
+
+      // Light tube
+      const light = this.add.rectangle(lx, ceilH + Math.round(5 * px), lightW, lightH, 0xFFF9C4)
+        .setDepth(-3).setAlpha(0.7);
+
+      // Light glow on floor below
+      const glowW = lightW * 1.5;
+      const glowH = Math.round(60 * px);
+      const glow = this.add.rectangle(lx, ceilH + glowH / 2 + Math.round(10 * px), glowW, glowH, 0xFFF9C4)
+        .setDepth(-9).setAlpha(0.04);
 
       // Subtle flicker
       this.tweens.add({
-        targets: light,
-        alpha: 0.4,
-        duration: 800 + Math.random() * 400,
+        targets: [light, glow],
+        alpha: light.alpha * 0.7,
+        duration: 800 + Math.random() * 600,
         yoyo: true,
         repeat: -1,
         delay: Math.random() * 1000,
       });
+      this._ceilingLights.push(light);
+    }
+
+    // Floor reflections (subtle light patches)
+    for (let i = 0; i < numLights; i++) {
+      const lx = i * lightSpacing + lightSpacing / 2;
+      const reflW = Math.round(100 * px);
+      const reflH = Math.round(20 * px);
+      this.add.ellipse(lx, GAME.GROUND_Y - Math.round(2 * px), reflW, reflH, 0xFFFFFF, 0.04)
+        .setDepth(-1);
+    }
+
+    // Room number signs above certain sections
+    const signSpacing = Math.round(800 * px);
+    const numSigns = Math.ceil(this._levelWidth / signSpacing);
+    const roomBase = 100 + ((gameState.level || 1) - 1) * 10;
+    for (let i = 0; i < numSigns; i++) {
+      const sx = i * signSpacing + signSpacing * 0.7;
+      const sy = Math.round(28 * px);
+      // Sign plate
+      const signGfx = this.add.graphics().setDepth(-4);
+      const sw = Math.round(40 * px);
+      const sh = Math.round(16 * px);
+      signGfx.fillStyle(0x1565C0, 1);
+      signGfx.fillRoundedRect(sx - sw / 2, sy, sw, sh, Math.round(2 * px));
+      // Room number text
+      this.add.text(sx, sy + sh / 2, '' + (roomBase + i), {
+        fontFamily: UI.FONT_FAMILY,
+        fontSize: Math.round(9 * px) + 'px',
+        color: '#FFFFFF',
+        fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(-3);
     }
   }
 
@@ -588,9 +957,87 @@ export default class GameScene extends Phaser.Scene {
     // Update hall monitors (patrol)
     this._monitors.forEach((m) => m.update(delta));
 
+    // Update paper airplanes
+    if (this._airplanes) {
+      this._airplanes.forEach((a) => a.update(delta));
+    }
+
+    // Update moving platforms
+    if (this._movingPlatforms) {
+      const t = time / 1000;
+      this._movingPlatforms.forEach((plat) => {
+        if (!plat.active) return;
+        let newX = plat._startX;
+        let newY = plat._startY;
+        if (plat._rangeX) {
+          newX = plat._startX + Math.sin(t * plat._speed) * plat._rangeX;
+        }
+        if (plat._rangeY) {
+          newY = plat._startY + Math.sin(t * plat._speed) * plat._rangeY;
+        }
+        plat.setPosition(newX, newY);
+        plat.body.updateFromGameObject();
+        if (plat._indicator) {
+          const dx = newX - plat._startX;
+          const dy = newY - plat._startY;
+          plat._indicator.setPosition(dx, dy);
+        }
+      });
+    }
+
     // Combo decay
     if (gameState.combo > 0 && time - this._lastCollectTime > 2000) {
       gameState.combo = 0;
+    }
+
+    // Near-miss detection (pass close to a monitor without dying)
+    if (this.player.active && !this._gameEnded) {
+      this._monitors.forEach((m) => {
+        if (!m.active) return;
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
+        const nearThreshold = Math.round(80 * GAME.PX);
+        if (dist < nearThreshold && !m._nearMissTriggered) {
+          m._nearMissTriggered = true;
+          // Near miss bonus
+          gameState.score += 5;
+          eventBus.emit(Events.SCORE_CHANGED, { score: gameState.score });
+          eventBus.emit(Events.SPECTACLE_NEAR_MISS, {});
+          const popup = this.add.text(this.player.x, this.player.y - Math.round(50 * GAME.PX), 'CLOSE CALL! +5', {
+            fontFamily: UI.FONT_FAMILY,
+            fontSize: Math.round(14 * GAME.PX) + 'px',
+            color: '#FF5722',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: Math.round(2 * GAME.PX),
+          }).setOrigin(0.5).setDepth(25);
+          this.tweens.add({
+            targets: popup,
+            y: popup.y - Math.round(30 * GAME.PX),
+            alpha: 0, duration: 800,
+            onComplete: () => popup.destroy(),
+          });
+        }
+        if (dist >= nearThreshold * 1.5) {
+          m._nearMissTriggered = false;
+        }
+      });
+    }
+
+    // Speed boost trail
+    if (gameState.hasSpeedBoost && this.player.active) {
+      if (!this._lastTrailTime || time - this._lastTrailTime > 80) {
+        this._lastTrailTime = time;
+        const trail = this.add.image(this.player.x, this.player.y, 'harry')
+          .setDepth(8).setAlpha(0.3).setTint(0x00E676);
+        this.tweens.add({
+          targets: trail,
+          alpha: 0,
+          scaleX: 0.5,
+          scaleY: 0.5,
+          duration: 300,
+          onComplete: () => trail.destroy(),
+        });
+      }
     }
 
     // Shield visual
@@ -613,10 +1060,9 @@ export default class GameScene extends Phaser.Scene {
     collectible.collect();
 
     this._emitSparkles(collectible.x, collectible.y);
+    gameState.totalCollected++;
 
-    gameState.score += collectible.scoreValue;
-
-    // Combo
+    // Combo tracking
     if (now - this._lastCollectTime < 2000) {
       gameState.combo++;
       if (gameState.combo > gameState.bestCombo) gameState.bestCombo = gameState.combo;
@@ -628,12 +1074,21 @@ export default class GameScene extends Phaser.Scene {
     }
     this._lastCollectTime = now;
 
-    // Score popup
-    const flash = this.add.text(collectible.x, collectible.y, '+' + collectible.scoreValue, {
+    // Combo multiplier: 1x for combo<3, 1.5x for 3-4, 2x for 5+
+    const comboMultiplier = gameState.combo >= 5 ? 2 : gameState.combo >= 3 ? 1.5 : 1;
+    const points = Math.round(collectible.scoreValue * comboMultiplier);
+    gameState.score += points;
+
+    // Score popup with multiplier indicator
+    const popupText = comboMultiplier > 1 ? `+${points} (${comboMultiplier}x)` : '+' + points;
+    const popupColor = comboMultiplier >= 2 ? '#FF4081' : comboMultiplier >= 1.5 ? '#FF9100' : '#FFD700';
+    const flash = this.add.text(collectible.x, collectible.y, popupText, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: Math.round(20 * GAME.PX) + 'px',
-      color: '#FFD700',
+      fontSize: Math.round((comboMultiplier > 1 ? 24 : 20) * GAME.PX) + 'px',
+      color: popupColor,
       fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: Math.round(2 * GAME.PX),
     }).setOrigin(0.5).setDepth(20);
 
     this.tweens.add({
@@ -719,6 +1174,42 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  _onCheckpoint(player, zone) {
+    if (zone._activated || this._gameEnded) return;
+    zone._activated = true;
+    this._lastCheckpointX = zone._x;
+
+    // Visual feedback - change flag color to gold
+    if (zone._flag) {
+      zone._flag.clear();
+      zone._flag.fillStyle(0xFFD700, 1);
+      const cx = zone._x;
+      const flagH = Math.round(60 * GAME.PX);
+      const flagW = Math.round(25 * GAME.PX);
+      zone._flag.fillTriangle(
+        cx + Math.round(2 * GAME.PX), GAME.GROUND_Y - flagH + Math.round(5 * GAME.PX),
+        cx + flagW, GAME.GROUND_Y - flagH + Math.round(18 * GAME.PX),
+        cx + Math.round(2 * GAME.PX), GAME.GROUND_Y - flagH + Math.round(30 * GAME.PX)
+      );
+    }
+
+    // Popup
+    const popup = this.add.text(zone._x, GAME.GROUND_Y - Math.round(75 * GAME.PX), 'CHECKPOINT!', {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(14 * GAME.PX) + 'px',
+      color: '#FFD700',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: Math.round(2 * GAME.PX),
+    }).setOrigin(0.5).setDepth(25);
+    this.tweens.add({
+      targets: popup,
+      y: popup.y - Math.round(30 * GAME.PX),
+      alpha: 0, duration: 1000,
+      onComplete: () => popup.destroy(),
+    });
+  }
+
   _onHitMonitor(player, monitor) {
     if (this._gameEnded) return;
     if (!monitor.active) return;
@@ -795,16 +1286,87 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    this.player.die();
     this._timerEvent.destroy();
-
     eventBus.emit(Events.GAME_OVER, { won, score: gameState.score });
 
-    this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
-    this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
-      this.scene.stop('HUDScene');
-      this.scene.start('GameOverScene');
-    });
+    if (won) {
+      // Win animation: Harry celebrates — jump + spin + freeze frame
+      this.player.body.setVelocity(0, 0);
+      this.player.body.setAllowGravity(false);
+      this.tweens.add({
+        targets: this.player,
+        y: this.player.y - Math.round(60 * GAME.PX),
+        angle: 360,
+        scaleX: 1.3,
+        scaleY: 1.3,
+        duration: 600,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+          // Confetti burst
+          for (let i = 0; i < 20; i++) {
+            const confettiColors = [0xFF4081, 0x448AFF, 0xFFD740, 0x69F0AE, 0xE040FB];
+            const size = Math.round((3 + Math.random() * 4) * GAME.PX);
+            const conf = this.add.rectangle(
+              this.player.x, this.player.y,
+              size, size * 0.6,
+              confettiColors[i % confettiColors.length]
+            ).setDepth(20).setAngle(Math.random() * 360);
+            this.tweens.add({
+              targets: conf,
+              x: this.player.x + (Math.random() - 0.5) * Math.round(200 * GAME.PX),
+              y: this.player.y + Math.random() * Math.round(150 * GAME.PX),
+              angle: conf.angle + (Math.random() - 0.5) * 720,
+              alpha: 0,
+              duration: 1000 + Math.random() * 500,
+              ease: 'Quad.easeOut',
+              onComplete: () => conf.destroy(),
+            });
+          }
+        },
+      });
+      // Delayed transition
+      this.time.delayedCall(1200, () => {
+        this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
+        this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+          this.player.die();
+          this.scene.stop('HUDScene');
+          this.scene.start('GameOverScene');
+        });
+      });
+    } else {
+      // Death animation: Harry spins and falls off screen
+      this.player.body.setVelocity(0, 0);
+      this.player.body.setAllowGravity(false);
+      this.tweens.add({
+        targets: this.player,
+        y: this.player.y - Math.round(40 * GAME.PX),
+        angle: -15,
+        scaleX: 1.1,
+        scaleY: 0.9,
+        duration: 250,
+        ease: 'Quad.easeOut',
+        yoyo: false,
+        onComplete: () => {
+          this.tweens.add({
+            targets: this.player,
+            y: GAME.HEIGHT + PLAYER.HEIGHT * 2,
+            angle: 360,
+            alpha: 0.4,
+            duration: 700,
+            ease: 'Quad.easeIn',
+          });
+        },
+      });
+      // Delayed transition
+      this.time.delayedCall(1000, () => {
+        this.cameras.main.fadeOut(EFFECTS.FADE_DURATION, 0, 0, 0);
+        this.time.delayedCall(EFFECTS.FADE_DURATION + 200, () => {
+          this.player.die();
+          this.scene.stop('HUDScene');
+          this.scene.start('GameOverScene');
+        });
+      });
+    }
   }
 
   shutdown() {

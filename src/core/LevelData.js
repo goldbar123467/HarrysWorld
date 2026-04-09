@@ -6,6 +6,13 @@ export const LEVELS = [
     name: 'The Hallway',
     timeLimit: 65,
     levelWidth: 4000,
+    theme: {
+      wallColor: 0xE8E0D4,      // warm beige
+      wallAccent: 0xD4C5A9,     // darker beige for wainscoting
+      lockerColors: [0x4A90D9, 0x5BA0E9], // blue lockers
+      trimColor: 0x8B7355,       // wood trim
+      ceilingColor: 0xF5F5F0,
+    },
     platforms: [
       { x: 0.10, y: 0.70, w: 180 },
       { x: 0.20, y: 0.58, w: 150 },
@@ -37,6 +44,10 @@ export const LEVELS = [
     powerups: [
       { x: 0.45, y: 0.48, type: 'speed' },
     ],
+    movingPlatforms: [],
+    paperAirplanes: [],
+    checkpoints: [0.50],
+    starThresholds: [40, 80, 130], // 1-star, 2-star, 3-star score
   },
 
   // Level 2: Picking Up Speed
@@ -44,6 +55,13 @@ export const LEVELS = [
     name: 'The Science Wing',
     timeLimit: 60,
     levelWidth: 5000,
+    theme: {
+      wallColor: 0xE0E8E4,      // cool green-gray
+      wallAccent: 0xC0D0C4,
+      lockerColors: [0x4CAF50, 0x66BB6A], // green lockers
+      trimColor: 0x607D8B,
+      ceilingColor: 0xF0F5F0,
+    },
     platforms: [
       { x: 0.08, y: 0.68, w: 160 },
       { x: 0.15, y: 0.55, w: 120 },
@@ -84,6 +102,10 @@ export const LEVELS = [
       { x: 0.35, y: 0.44, type: 'time' },
       { x: 0.70, y: 0.52, type: 'shield' },
     ],
+    movingPlatforms: [],
+    paperAirplanes: [],
+    checkpoints: [0.40, 0.70],
+    starThresholds: [60, 120, 200],
   },
 
   // Level 3: The Gauntlet
@@ -91,6 +113,13 @@ export const LEVELS = [
     name: 'The Gym Corridor',
     timeLimit: 55,
     levelWidth: 5500,
+    theme: {
+      wallColor: 0xE8DCD0,      // warm tan
+      wallAccent: 0xD4C0A8,
+      lockerColors: [0xE65100, 0xF4511E], // orange lockers
+      trimColor: 0x795548,
+      ceilingColor: 0xFFF8E1,
+    },
     platforms: [
       { x: 0.06, y: 0.70, w: 140 },
       { x: 0.14, y: 0.55, w: 110 },
@@ -139,6 +168,14 @@ export const LEVELS = [
       { x: 0.50, y: 0.45, type: 'shield' },
       { x: 0.78, y: 0.42, type: 'time' },
     ],
+    movingPlatforms: [
+      { x: 0.42, y: 0.55, w: 110, rangeX: 0.08, speed: 0.4 },
+    ],
+    paperAirplanes: [
+      { x: 0.40, y: 0.30, amplitude: 30, speed: 100, range: 250 },
+    ],
+    checkpoints: [0.35, 0.65],
+    starThresholds: [80, 160, 260],
   },
 
   // Level 4: Rush Hour
@@ -146,6 +183,13 @@ export const LEVELS = [
     name: 'The Library',
     timeLimit: 50,
     levelWidth: 6000,
+    theme: {
+      wallColor: 0xDCD0E8,      // soft purple
+      wallAccent: 0xC0B0D4,
+      lockerColors: [0x7B1FA2, 0x9C27B0], // purple lockers
+      trimColor: 0x5D4037,
+      ceilingColor: 0xF3E5F5,
+    },
     platforms: [
       { x: 0.05, y: 0.72, w: 120 },
       { x: 0.12, y: 0.58, w: 100 },
@@ -197,6 +241,16 @@ export const LEVELS = [
       { x: 0.20, y: 0.38, type: 'shield' },
       { x: 0.55, y: 0.40, type: 'time' },
     ],
+    movingPlatforms: [
+      { x: 0.35, y: 0.50, w: 100, rangeX: 0.06, speed: 0.5 },
+      { x: 0.70, y: 0.48, w: 90, rangeY: 0.10, speed: 0.35 },
+    ],
+    paperAirplanes: [
+      { x: 0.25, y: 0.28, amplitude: 35, speed: 110, range: 200 },
+      { x: 0.60, y: 0.25, amplitude: 25, speed: 130, range: 280, direction: -1 },
+    ],
+    checkpoints: [0.30, 0.60],
+    starThresholds: [80, 170, 280],
   },
 
   // Level 5: Final Exam
@@ -204,6 +258,13 @@ export const LEVELS = [
     name: 'The Principal\'s Floor',
     timeLimit: 45,
     levelWidth: 7000,
+    theme: {
+      wallColor: 0xD4D4D4,      // serious gray
+      wallAccent: 0xB0B0B0,
+      lockerColors: [0xC62828, 0xD32F2F], // red lockers
+      trimColor: 0x424242,
+      ceilingColor: 0xECEFF1,
+    },
     platforms: [
       { x: 0.04, y: 0.72, w: 110 },
       { x: 0.10, y: 0.55, w: 90 },
@@ -263,6 +324,18 @@ export const LEVELS = [
       { x: 0.45, y: 0.38, type: 'shield' },
       { x: 0.75, y: 0.38, type: 'time' },
     ],
+    movingPlatforms: [
+      { x: 0.30, y: 0.52, w: 90, rangeX: 0.07, speed: 0.55 },
+      { x: 0.55, y: 0.45, w: 80, rangeY: 0.12, speed: 0.4 },
+      { x: 0.80, y: 0.50, w: 90, rangeX: 0.06, speed: 0.6 },
+    ],
+    paperAirplanes: [
+      { x: 0.20, y: 0.25, amplitude: 30, speed: 120, range: 220 },
+      { x: 0.45, y: 0.30, amplitude: 40, speed: 140, range: 300, direction: -1 },
+      { x: 0.70, y: 0.22, amplitude: 25, speed: 100, range: 250 },
+    ],
+    checkpoints: [0.25, 0.50, 0.75],
+    starThresholds: [100, 200, 340],
   },
 ];
 

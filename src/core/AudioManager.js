@@ -44,6 +44,7 @@ class AudioManager {
     eventBus.on(Events.ITEM_COLLECTED, (data) => this.playCollect(data));
     eventBus.on(Events.SPECTACLE_COMBO, (data) => this.playCombo(data));
     eventBus.on(Events.PLAYER_DIED, () => this.playDeath());
+    eventBus.on(Events.SPECTACLE_NEAR_MISS, () => this.playNearMiss());
     eventBus.on('powerup:collected', (data) => this.playPowerup());
     eventBus.on('audio:mute', ({ muted }) => {
       this._masterGain.gain.value = muted ? 0 : 0.4;
@@ -308,6 +309,24 @@ class AudioManager {
     gain.connect(this._sfxGain);
     osc.start(now);
     osc.stop(now + 0.05);
+  }
+
+  playNearMiss() {
+    if (!this._initialized || gameState.isMuted) return;
+    const ctx = this._ctx;
+    const now = ctx.currentTime;
+    // Quick whoosh sound
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    osc.connect(gain);
+    gain.connect(this._sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.15);
   }
 
   playTimeWarning() {

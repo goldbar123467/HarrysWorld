@@ -1,4 +1,4 @@
-// HUDScene.js — Overlay HUD showing score, timer, and combo
+// HUDScene.js — Overlay HUD showing score, timer, combo, and progress bar
 
 import Phaser from 'phaser';
 import { GAME, COLORS, HUD, EFFECTS, UI, SAFE_ZONE } from '../core/Constants.js';
@@ -14,25 +14,26 @@ export default class HUDScene extends Phaser.Scene {
   create() {
     const pad = HUD.PADDING;
     const top = SAFE_ZONE.TOP;
+    const px = GAME.PX;
 
     // Level text (top-left, small)
     const level = gameState.level || 1;
     this._levelText = this.add.text(pad, top, 'Lv.' + level, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: Math.round(12 * GAME.PX) + 'px',
+      fontSize: Math.round(12 * px) + 'px',
       color: '#AAAAAA',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(1 * GAME.PX),
+      strokeThickness: Math.round(1 * px),
     }).setDepth(100).setScrollFactor(0);
 
     // Score text (top-left, below level)
-    this._scoreText = this.add.text(pad, top + Math.round(16 * GAME.PX), 'Score: 0', {
+    this._scoreText = this.add.text(pad, top + Math.round(16 * px), 'Score: 0', {
       fontFamily: UI.FONT_FAMILY,
       fontSize: HUD.FONT_SIZE + 'px',
       color: COLORS.TEXT_PRIMARY,
       fontStyle: 'bold',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(2 * GAME.PX),
+      strokeThickness: Math.round(2 * px),
     }).setDepth(100).setScrollFactor(0);
 
     // Timer text (top-center)
@@ -42,7 +43,7 @@ export default class HUDScene extends Phaser.Scene {
       color: COLORS.TEXT_PRIMARY,
       fontStyle: 'bold',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(2 * GAME.PX),
+      strokeThickness: Math.round(2 * px),
     }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
 
     // Combo text (top-right)
@@ -52,8 +53,41 @@ export default class HUDScene extends Phaser.Scene {
       color: '#FFD700',
       fontStyle: 'bold',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(2 * GAME.PX),
+      strokeThickness: Math.round(2 * px),
     }).setOrigin(1, 0).setDepth(100).setScrollFactor(0);
+
+    // Items collected counter (below timer)
+    this._itemText = this.add.text(GAME.WIDTH / 2, top + Math.round(26 * px), '', {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(10 * px) + 'px',
+      color: '#BBBBBB',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(1 * px),
+    }).setOrigin(0.5, 0).setDepth(100).setScrollFactor(0);
+    this._updateItemCount();
+
+    // Progress bar (bottom of screen, shows how far through level)
+    const barW = GAME.WIDTH * 0.4;
+    const barH = Math.round(6 * px);
+    const barX = (GAME.WIDTH - barW) / 2;
+    const barY = GAME.HEIGHT - SAFE_ZONE.BOTTOM - Math.round(8 * px);
+
+    this._progressBg = this.add.rectangle(barX + barW / 2, barY, barW, barH, 0x333333, 0.5)
+      .setDepth(100).setScrollFactor(0);
+    this._progressFill = this.add.rectangle(barX, barY, 1, barH, 0x4CAF50, 0.8)
+      .setOrigin(0, 0.5).setDepth(101).setScrollFactor(0);
+    this._progressBarWidth = barW;
+    this._progressBarX = barX;
+
+    // Player icon on progress bar
+    this._progressIcon = this.add.image(barX, barY, 'harry')
+      .setDisplaySize(Math.round(12 * px), Math.round(18 * px))
+      .setDepth(102).setScrollFactor(0);
+
+    // Door icon at end
+    this.add.image(barX + barW, barY, 'door')
+      .setDisplaySize(Math.round(10 * px), Math.round(16 * px))
+      .setDepth(102).setScrollFactor(0);
 
     this._timerWarning = false;
     this._timerTween = null;
@@ -66,7 +100,6 @@ export default class HUDScene extends Phaser.Scene {
     this._onTimeUpdate = ({ timeLeft }) => {
       this._timerText.setText(timeLeft + 's');
 
-      // Time-low warning
       if (timeLeft <= EFFECTS.TIME_WARNING_THRESHOLD && !this._timerWarning) {
         this._timerWarning = true;
         this._timerText.setColor('#F44336');
@@ -84,7 +117,9 @@ export default class HUDScene extends Phaser.Scene {
     };
 
     this._onCombo = ({ combo }) => {
-      this._comboText.setText(combo + 'x COMBO!');
+      const multiplier = combo >= 5 ? '2x' : combo >= 3 ? '1.5x' : '';
+      this._comboText.setText(combo + 'x COMBO!' + (multiplier ? ' (' + multiplier + ')' : ''));
+      this._comboText.setColor(combo >= 5 ? '#FF4081' : combo >= 3 ? '#FF9100' : '#FFD700');
       this._comboText.setScale(1.5);
       this.tweens.add({
         targets: this._comboText,
@@ -99,6 +134,7 @@ export default class HUDScene extends Phaser.Scene {
       if (gameState.combo < 3) {
         this._comboText.setText('');
       }
+      this._updateItemCount();
     };
 
     this._onGameOver = () => {
@@ -112,6 +148,22 @@ export default class HUDScene extends Phaser.Scene {
     eventBus.on(Events.GAME_OVER, this._onGameOver);
 
     this.events.on('shutdown', this.shutdown, this);
+  }
+
+  _updateItemCount() {
+    if (gameState.totalCollectibles > 0) {
+      this._itemText.setText(`${gameState.totalCollected}/${gameState.totalCollectibles} items`);
+    }
+  }
+
+  update() {
+    // Update progress bar based on player position
+    const gameScene = this.scene.get('GameScene');
+    if (gameScene && gameScene.player && gameScene.player.active && gameScene._levelWidth) {
+      const progress = Math.min(1, Math.max(0, gameScene.player.x / gameScene._levelWidth));
+      this._progressFill.setDisplaySize(this._progressBarWidth * progress, this._progressFill.height);
+      this._progressIcon.setX(this._progressBarX + this._progressBarWidth * progress);
+    }
   }
 
   shutdown() {

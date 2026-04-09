@@ -1,4 +1,4 @@
-// GameOverScene.js — Game over / win screen with level progression
+// GameOverScene.js — Game over / win screen with star rating and level progression
 
 import Phaser from 'phaser';
 import { GAME, COLORS, UI, SAFE_ZONE, EFFECTS } from '../core/Constants.js';
@@ -14,7 +14,8 @@ export default class GameOverScene extends Phaser.Scene {
 
   create() {
     const cx = GAME.WIDTH / 2;
-    const startY = SAFE_ZONE.TOP + Math.round(40 * GAME.PX);
+    const px = GAME.PX;
+    const startY = SAFE_ZONE.TOP + Math.round(20 * px);
 
     this.cameras.main.fadeIn(EFFECTS.FADE_DURATION, 0, 0, 0);
 
@@ -27,133 +28,189 @@ export default class GameOverScene extends Phaser.Scene {
 
     // Overlay
     const overlay = this.add.rectangle(cx, GAME.HEIGHT / 2, GAME.WIDTH, GAME.HEIGHT, COLORS.OVERLAY, 0).setDepth(0);
-    this.tweens.add({ targets: overlay, fillAlpha: 0.7, duration: 400, ease: 'Sine.easeIn' });
+    this.tweens.add({ targets: overlay, fillAlpha: 0.75, duration: 400, ease: 'Sine.easeIn' });
 
     // Title
-    const titleText = gameState.won ? 'MADE IT!' : 'LATE!';
+    const titleText = gameState.won ? 'MADE IT!' : 'BUSTED!';
     const titleColor = gameState.won ? '#4CAF50' : '#F44336';
-    const title = this.add.text(cx, startY - Math.round(60 * GAME.PX), titleText, {
+    const title = this.add.text(cx, startY, titleText, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: UI.TITLE_SIZE + 'px',
+      fontSize: Math.round(44 * px) + 'px',
       color: titleColor,
       fontStyle: 'bold',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(4 * GAME.PX),
-    }).setOrigin(0.5).setDepth(1).setAlpha(0);
+      strokeThickness: Math.round(4 * px),
+    }).setOrigin(0.5).setDepth(1).setAlpha(0).setScale(0.3);
 
     this.tweens.add({
-      targets: title, y: startY, alpha: 1,
+      targets: title, alpha: 1, scaleX: 1, scaleY: 1,
       duration: 500, ease: 'Back.easeOut', delay: 150,
-    });
-
-    // Character sprite
-    const charKey = gameState.won ? 'harry' : 'hall_monitor';
-    const charSprite = this.add.image(cx, startY + Math.round(45 * GAME.PX), charKey)
-      .setDepth(1).setAlpha(0).setScale(0.5);
-    this.tweens.add({
-      targets: charSprite, alpha: 1, scaleX: 1, scaleY: 1,
-      duration: 400, ease: 'Back.easeOut', delay: 350,
     });
 
     // Level name
     const level = gameState.level || 1;
     const levelData = getLevelData(level);
-    const levelLabel = this.add.text(cx, startY + Math.round(80 * GAME.PX), `Level ${level}: ${levelData.name}`, {
+    const levelLabel = this.add.text(cx, startY + Math.round(42 * px), `Level ${level}: ${levelData.name}`, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: Math.round(16 * GAME.PX) + 'px',
-      color: '#AAAAAA',
+      fontSize: Math.round(14 * px) + 'px',
+      color: '#BBBBBB',
       stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(1 * GAME.PX),
+      strokeThickness: Math.round(1 * px),
     }).setOrigin(0.5).setDepth(1).setAlpha(0);
-    this.tweens.add({ targets: levelLabel, alpha: 1, duration: 400, delay: 450 });
+    this.tweens.add({ targets: levelLabel, alpha: 1, duration: 400, delay: 350 });
 
-    // Score
-    const scoreText = this.add.text(cx, startY + Math.round(110 * GAME.PX), 'Score: ' + gameState.score, {
-      fontFamily: UI.FONT_FAMILY,
-      fontSize: UI.SUBTITLE_SIZE + 'px',
-      color: COLORS.TEXT_PRIMARY,
-      stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(2 * GAME.PX),
-    }).setOrigin(0.5).setDepth(1).setAlpha(0);
-    this.tweens.add({ targets: scoreText, alpha: 1, duration: 400, delay: 500 });
+    // Star rating (if won)
+    let earnedStars = 0;
+    if (gameState.won) {
+      const thresholds = levelData.starThresholds || [40, 80, 130];
 
-    // Best score
-    const bestText = this.add.text(cx, startY + Math.round(145 * GAME.PX), 'Best: ' + gameState.bestScore, {
-      fontFamily: UI.FONT_FAMILY,
-      fontSize: UI.BODY_SIZE + 'px',
-      color: '#FFD700',
-      stroke: COLORS.TEXT_SHADOW,
-      strokeThickness: Math.round(2 * GAME.PX),
-    }).setOrigin(0.5).setDepth(1).setAlpha(0);
-    this.tweens.add({ targets: bestText, alpha: 1, duration: 400, delay: 600 });
+      // Calculate time bonus first
+      const timeBonus = gameState.timeLeft > 0 ? gameState.timeLeft * 5 : 0;
+      const totalScore = gameState.score + timeBonus;
 
-    // Time remaining (if won)
-    if (gameState.won && gameState.timeLeft > 0) {
-      const timeBonus = gameState.timeLeft * 5;
-      const timeBonusText = this.add.text(cx, startY + Math.round(175 * GAME.PX),
-        `Time Bonus: +${timeBonus} (${gameState.timeLeft}s left)`, {
-          fontFamily: UI.FONT_FAMILY,
-          fontSize: Math.round(16 * GAME.PX) + 'px',
-          color: '#81C784',
-          stroke: COLORS.TEXT_SHADOW,
-          strokeThickness: Math.round(1 * GAME.PX),
-        }).setOrigin(0.5).setDepth(1).setAlpha(0);
-      this.tweens.add({ targets: timeBonusText, alpha: 1, duration: 400, delay: 700 });
+      // Count stars
+      for (let i = 0; i < thresholds.length; i++) {
+        if (totalScore >= thresholds[i]) earnedStars++;
+      }
 
-      // Add time bonus to score
-      gameState.score += timeBonus;
-      if (gameState.score > gameState.bestScore) {
-        gameState.bestScore = gameState.score;
-        localStorage.setItem('harrys_world_best_score', gameState.bestScore.toString());
+      // Star display
+      const starY = startY + Math.round(75 * px);
+      const starSpacing = Math.round(45 * px);
+      const starSize = Math.round(20 * px);
+
+      for (let i = 0; i < 3; i++) {
+        const sx = cx - starSpacing + i * starSpacing;
+        const filled = i < earnedStars;
+        const star = this._drawStar(sx, starY, starSize, filled);
+        star.setDepth(2).setAlpha(0).setScale(0);
+
+        this.tweens.add({
+          targets: star,
+          alpha: 1,
+          scaleX: 1,
+          scaleY: 1,
+          duration: 400,
+          ease: 'Back.easeOut',
+          delay: 500 + i * 200,
+          onComplete: filled ? () => {
+            // Sparkle on filled star
+            this.tweens.add({
+              targets: star, scaleX: 1.2, scaleY: 1.2,
+              duration: 200, yoyo: true,
+            });
+          } : undefined,
+        });
+      }
+
+      // Save stars
+      gameState.saveStars(level, earnedStars);
+
+      // Time bonus display
+      if (timeBonus > 0) {
+        const timeBonusText = this.add.text(cx, starY + Math.round(35 * px),
+          `Time Bonus: +${timeBonus} (${gameState.timeLeft}s left)`, {
+            fontFamily: UI.FONT_FAMILY,
+            fontSize: Math.round(13 * px) + 'px',
+            color: '#81C784',
+            stroke: COLORS.TEXT_SHADOW,
+            strokeThickness: Math.round(1 * px),
+          }).setOrigin(0.5).setDepth(1).setAlpha(0);
+        this.tweens.add({ targets: timeBonusText, alpha: 1, duration: 400, delay: 700 });
+
+        // Add time bonus to score
+        gameState.score += timeBonus;
+        if (gameState.score > gameState.bestScore) {
+          gameState.bestScore = gameState.score;
+          localStorage.setItem('harrys_world_best_score', gameState.bestScore.toString());
+        }
       }
     }
 
+    // Score panel
+    const panelY = startY + Math.round((gameState.won ? 145 : 80) * px);
+
+    // Score
+    const scoreText = this.add.text(cx, panelY, 'Score: ' + gameState.score, {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(22 * px) + 'px',
+      color: COLORS.TEXT_PRIMARY,
+      fontStyle: 'bold',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(2 * px),
+    }).setOrigin(0.5).setDepth(1).setAlpha(0);
+    this.tweens.add({ targets: scoreText, alpha: 1, duration: 400, delay: 800 });
+
+    // Stats row
+    const statsY = panelY + Math.round(30 * px);
+    const collectPct = gameState.totalCollectibles > 0
+      ? Math.round((gameState.totalCollected / gameState.totalCollectibles) * 100) : 0;
+    const statsLine = `Items: ${gameState.totalCollected}/${gameState.totalCollectibles} (${collectPct}%)  |  Best Combo: ${gameState.bestCombo}x`;
+    const statsText = this.add.text(cx, statsY, statsLine, {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(11 * px) + 'px',
+      color: '#AAAAAA',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(1 * px),
+    }).setOrigin(0.5).setDepth(1).setAlpha(0);
+    this.tweens.add({ targets: statsText, alpha: 1, duration: 400, delay: 900 });
+
+    // Best score
+    const bestText = this.add.text(cx, statsY + Math.round(25 * px), 'Best: ' + gameState.bestScore, {
+      fontFamily: UI.FONT_FAMILY,
+      fontSize: Math.round(16 * px) + 'px',
+      color: '#FFD700',
+      stroke: COLORS.TEXT_SHADOW,
+      strokeThickness: Math.round(2 * px),
+    }).setOrigin(0.5).setDepth(1).setAlpha(0);
+    this.tweens.add({ targets: bestText, alpha: 1, duration: 400, delay: 950 });
+
     // Buttons
-    const btnY = startY + Math.round(235 * GAME.PX);
+    const btnY = statsY + Math.round(65 * px);
     const btnW = UI.BUTTON_WIDTH;
     const btnH = UI.BUTTON_HEIGHT;
 
     if (gameState.won && level < LEVELS.length) {
-      // Next Level button
-      this._createButton(cx, btnY, 'Next Level', 0x4CAF50, 0x66BB6A, btnW, btnH, 750, () => {
+      this._createButton(cx, btnY, 'Next Level  \u25B6', 0x4CAF50, 0x66BB6A, btnW, btnH, 1000, () => {
         this._goToLevel((gameState.level || 1) + 1);
       });
-
-      // Replay button (smaller, below)
-      this._createButton(cx, btnY + Math.round(60 * GAME.PX), 'Replay', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW * 0.8, btnH * 0.85, 850, () => {
+      this._createButton(cx, btnY + Math.round(55 * px), 'Replay', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW * 0.75, btnH * 0.8, 1100, () => {
         this._goToLevel(gameState.level || 1);
       });
-
-      // Menu button
-      this._createButton(cx, btnY + Math.round(115 * GAME.PX), 'Menu', 0x616161, 0x757575, btnW * 0.8, btnH * 0.85, 950, () => {
+      this._createButton(cx, btnY + Math.round(105 * px), 'Menu', 0x616161, 0x757575, btnW * 0.75, btnH * 0.8, 1200, () => {
         this._goToMenu();
       });
     } else if (gameState.won && level >= LEVELS.length) {
-      // All levels completed!
-      const congrats = this.add.text(cx, btnY - Math.round(20 * GAME.PX), 'ALL LEVELS COMPLETE!', {
+      const congrats = this.add.text(cx, btnY - Math.round(15 * px), 'ALL LEVELS COMPLETE!', {
         fontFamily: UI.FONT_FAMILY,
-        fontSize: Math.round(22 * GAME.PX) + 'px',
+        fontSize: Math.round(22 * px) + 'px',
         color: '#FFD700',
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: Math.round(3 * GAME.PX),
+        strokeThickness: Math.round(3 * px),
       }).setOrigin(0.5).setDepth(2).setAlpha(0);
-      this.tweens.add({ targets: congrats, alpha: 1, duration: 500, delay: 750 });
+      this.tweens.add({ targets: congrats, alpha: 1, duration: 500, delay: 1000 });
 
-      this._createButton(cx, btnY + Math.round(30 * GAME.PX), 'Play Again', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW, btnH, 850, () => {
+      // Total stars
+      const totalStars = gameState.getTotalStars();
+      const maxStars = LEVELS.length * 3;
+      this.add.text(cx, btnY + Math.round(15 * px), `Total Stars: ${totalStars}/${maxStars}`, {
+        fontFamily: UI.FONT_FAMILY,
+        fontSize: Math.round(16 * px) + 'px',
+        color: '#FFD700',
+      }).setOrigin(0.5).setDepth(2).setAlpha(0);
+
+      this._createButton(cx, btnY + Math.round(55 * px), 'Play Again', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW, btnH, 1100, () => {
         this._goToLevel(1);
       });
-
-      this._createButton(cx, btnY + Math.round(90 * GAME.PX), 'Menu', 0x616161, 0x757575, btnW * 0.8, btnH * 0.85, 950, () => {
+      this._createButton(cx, btnY + Math.round(115 * px), 'Menu', 0x616161, 0x757575, btnW * 0.8, btnH * 0.85, 1200, () => {
         this._goToMenu();
       });
     } else {
-      // Lost — retry or menu
-      this._createButton(cx, btnY, 'Try Again', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW, btnH, 750, () => {
+      // Lost
+      this._createButton(cx, btnY, 'Try Again', COLORS.BUTTON_BG, COLORS.BUTTON_HOVER, btnW, btnH, 1000, () => {
         this._goToLevel(gameState.level || 1);
       });
-
-      this._createButton(cx, btnY + Math.round(60 * GAME.PX), 'Menu', 0x616161, 0x757575, btnW * 0.8, btnH * 0.85, 850, () => {
+      this._createButton(cx, btnY + Math.round(55 * px), 'Menu', 0x616161, 0x757575, btnW * 0.8, btnH * 0.85, 1100, () => {
         this._goToMenu();
       });
     }
@@ -169,6 +226,43 @@ export default class GameOverScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ESC', () => this._goToMenu());
   }
 
+  _drawStar(x, y, size, filled) {
+    const gfx = this.add.graphics();
+    const color = filled ? 0xFFD700 : 0x555555;
+    const alpha = filled ? 1 : 0.5;
+    gfx.fillStyle(color, alpha);
+
+    // 5-point star path
+    const points = [];
+    for (let i = 0; i < 10; i++) {
+      const angle = (i * Math.PI / 5) - Math.PI / 2;
+      const r = i % 2 === 0 ? size : size * 0.4;
+      points.push(x + Math.cos(angle) * r);
+      points.push(y + Math.sin(angle) * r);
+    }
+
+    gfx.beginPath();
+    gfx.moveTo(points[0], points[1]);
+    for (let i = 2; i < points.length; i += 2) {
+      gfx.lineTo(points[i], points[i + 1]);
+    }
+    gfx.closePath();
+    gfx.fillPath();
+
+    if (filled) {
+      gfx.lineStyle(Math.round(1.5 * GAME.PX), 0xFFA000);
+      gfx.beginPath();
+      gfx.moveTo(points[0], points[1]);
+      for (let i = 2; i < points.length; i += 2) {
+        gfx.lineTo(points[i], points[i + 1]);
+      }
+      gfx.closePath();
+      gfx.strokePath();
+    }
+
+    return gfx;
+  }
+
   _createButton(x, y, label, bgColor, hoverColor, w, h, delay, callback) {
     const gfx = this.add.graphics();
     gfx.fillStyle(bgColor, 1);
@@ -176,7 +270,7 @@ export default class GameOverScene extends Phaser.Scene {
 
     const text = this.add.text(0, 0, label, {
       fontFamily: UI.FONT_FAMILY,
-      fontSize: UI.BODY_SIZE + 'px',
+      fontSize: Math.round(18 * GAME.PX) + 'px',
       color: COLORS.TEXT_PRIMARY,
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -208,6 +302,7 @@ export default class GameOverScene extends Phaser.Scene {
     container.on('pointerdown', () => {
       if (this._transitioning) return;
       this._transitioning = true;
+      audioManager.playMenuClick();
       callback();
     });
   }
@@ -228,9 +323,5 @@ export default class GameOverScene extends Phaser.Scene {
     this.time.delayedCall(EFFECTS.FADE_DURATION, () => {
       this.scene.start('TitleScene');
     });
-  }
-
-  shutdown() {
-    // Clean up
   }
 }

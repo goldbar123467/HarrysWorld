@@ -14,6 +14,7 @@ import {
   WALL_PIXELS, WALL_SCALE,
   LOCKER_PIXELS, LOCKER_SCALE,
 } from '../sprites/tiles.js';
+import { PAPER_AIRPLANE_PIXELS, PAPER_AIRPLANE_SCALE } from '../sprites/paperairplane.js';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -46,6 +47,9 @@ export default class BootScene extends Phaser.Scene {
     // Background tiles
     renderPixelArt(this, WALL_PIXELS, PALETTE, 'wall', WALL_SCALE);
     renderPixelArt(this, LOCKER_PIXELS, PALETTE, 'locker', LOCKER_SCALE);
+
+    // Paper airplane
+    renderPixelArt(this, PAPER_AIRPLANE_PIXELS, PALETTE, 'paper_airplane', PAPER_AIRPLANE_SCALE);
 
     // Touch buttons (kept as procedural graphics)
     this._generateTouchButtons();
