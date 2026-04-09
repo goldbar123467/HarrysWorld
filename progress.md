@@ -33,8 +33,100 @@
 - **Background**: Wall tiles tiled across background (depth -10), locker decorations at regular intervals (depth -5)
 - **Dimension note**: Sprite pixel sizes are fixed grid sizes rendered at scale factor; display sizes are controlled by Phaser setDisplaySize() in game entities using Constants.js values
 
+## Step 2: Audio System
+- **AudioManager**: `src/core/AudioManager.js` — Web Audio API procedural audio
+- **BGM**: Chord progression loop (C-F-G-C) using triangle oscillators + bass
+- **SFX**: Jump (square, rising), Land (sine, falling), Collect (two-tone square), Combo (rising arpeggio), Death (descending sawtooth), Win (victory fanfare), Menu click, Time warning, Powerup (rising sparkle)
+- **Mute support**: EventBus `audio:mute` event toggles master gain
+
+## Step 3: Level System
+- **LevelData.js**: 5 levels with increasing difficulty
+  - Level 1: "The Hallway" — 4000px, 65s, 2 monitors, 1 powerup
+  - Level 2: "The Science Wing" — 5000px, 60s, 3 monitors, 2 powerups
+  - Level 3: "The Gym Corridor" — 5500px, 55s, 4 monitors, 3 powerups
+  - Level 4: "The Library" — 6000px, 50s, 5 monitors, 2 powerups
+  - Level 5: "The Principal's Floor" — 7000px, 45s, 6 monitors, 3 powerups
+- **Powerups**: Speed boost (1.5x, 5s), Shield (absorb 1 hit, 8s), Time (+10s)
+- **Level progression**: Unlock next on win, localStorage persistence
+- **Level select**: Title screen level button cycles through unlocked levels
+
+## Step 4: Polish Features Added
+- Parallax elements (floating dust motes, ceiling fluorescent lights)
+- Tutorial overlay on first play (level 1)
+- Level name banner on scene start
+- Pause scene (ESC key)
+- Shield visual effect (pulsing circle)
+- Powerup popup text
+- Screen flash on monitor hit
+
 ## Decisions / Known Issues
 - All textures generated procedurally (no external assets)
 - Level is ~5000px wide with 10 platforms, 6 obstacles, 12 collectibles, 4 hall monitors
 - Player is 12% of canvas width for mobile visibility
 - Collectibles are 7-8% of canvas width minimum
+
+---
+
+## Audit Status (Queen Agent — Score: 52/100)
+
+Full audit in `AUDIT_REPORT.md`. Tracking fix status here:
+
+### Already Fixed
+- [x] #4 — pixelArt: true in Phaser config
+- [x] #11 — setCollideWorldBounds(true) 
+- [x] #3 — Combo font uses COMBO_FONT_SIZE
+- [x] #31 — Audio system implemented (AudioManager.js)
+
+### Remaining — Phase 1 (Quick Wins)
+- [ ] #1 — Player death visual feedback (HIGH, Priority 4.50)
+- [ ] #2 — Combo score multiplier (HIGH, Priority 4.00)
+- [ ] #5 — Jump bunny-hop fix / rising-edge detection (HIGH, Priority 3.50)
+- [ ] #10 — Obstacle origin/body mismatch (MEDIUM, Priority 3.00)
+- [ ] #13 — PLAYER_DIED fires every frame (MEDIUM, Priority 4.00)
+- [ ] #22 — Camera deadzone (MEDIUM, Priority 5.00)
+- [ ] #25 — Tab switch pause timer (MEDIUM, Priority 2.50)
+
+### Remaining — Phase 2 (Important)
+- [ ] #8 — Coyote time (HIGH, Priority 3.50)
+- [ ] #9 — Jump input buffering (HIGH, Priority 3.00)
+- [ ] #7 — End zone empty 80-100% (HIGH, Priority 4.00)
+- [ ] #6 — Background performance / TileSprite (HIGH, Priority 2.67)
+- [ ] #12 — One-way platforms (HIGH, Priority 2.33)
+- [ ] #26 — Fast-fall / asymmetric jump (MEDIUM, Priority 2.50)
+- [ ] #27 — Rapid restart race condition (MEDIUM, Priority 2.00)
+- [ ] #28 — Enemy density escalation (MEDIUM, Priority 2.00)
+
+### Remaining — Phase 3 (Strategic)
+- [ ] #29 — Tile border grid lines (MEDIUM, Priority 1.25)
+- [ ] #20 — More walk frames (MEDIUM, Priority 1.00)
+- [ ] #24 — Movement acceleration/deceleration (MEDIUM, Priority 1.67)
+- [ ] #35 — Invincibility frames / stomp mechanic (MEDIUM, Priority 1.25)
+- [ ] #14 — Resize handler for constants (MEDIUM, Priority 0.83)
+- [ ] #34 — Parallax scrolling [PARTIAL — dust motes + lights done]
+- [ ] #30 — Pixel font instead of Arial (LOW, Priority 1.00)
+
+### Dead Code / Minor
+- [ ] #16 — Duplicate ground texture in BootScene
+- [ ] #17 — Particle textures regenerated each session (mitigated)
+- [ ] #18 — GAME_RESTART event with no listener
+- [ ] #19 — Unused reset/deactivate methods
+- [ ] #21 — Harry sprite non-integer scale 2.8
+- [ ] #23 — Collectible bobbing updates static body each frame
+- [ ] #32 — GameOverScene.shutdown() empty
+- [ ] #33 — HUDScene launched without guard
+
+---
+
+## Improvement Log
+
+Track each improvement cycle here. Format:
+
+```
+### Cycle N — YYYY-MM-DD
+- **Finding**: #N — Description  
+- **Skill Used**: /skill-name or direct fix
+- **Changes**: files modified
+- **Status**: DONE
+```
+
+_(No cycles run yet — use "run improvements" to start)_
