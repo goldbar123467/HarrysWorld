@@ -21,6 +21,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this._wasOnFloor = false;
     this._facingRight = true;
     this._speedMultiplier = 1;
+    this._isDead = false;
 
     // Entrance tween
     this.setPosition(-PLAYER.WIDTH * 2, y);
@@ -100,8 +101,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFrame(0);
     }
 
-    // Fall off world — die
-    if (this.y > GAME.HEIGHT + PLAYER.HEIGHT * 2) {
+    // Fall off world — die (fire only once)
+    if (!this._isDead && this.y > GAME.HEIGHT + PLAYER.HEIGHT * 2) {
+      this._isDead = true;
       eventBus.emit(Events.PLAYER_DIED);
     }
   }
@@ -118,9 +120,56 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   die() {
+    if (this._isDead) return;
+    this._isDead = true;
     this.setActive(false);
-    this.setVisible(false);
+
+    // Disable physics so player doesn't collide during death anim
     this.body.enable = false;
+
+    // Flash/blink effect
+    let flashCount = 0;
+    const flashTimer = this.scene.time.addEvent({
+      delay: EFFECTS.DEATH_FLASH_DURATION,
+      callback: () => {
+        this.setVisible(!this.visible);
+        flashCount++;
+        if (flashCount >= EFFECTS.DEATH_FLASH_COUNT * 2) {
+          flashTimer.destroy();
+          this.setVisible(true);
+          // After flashing, rise up and spin off screen
+          this._deathFall();
+        }
+      },
+      loop: true,
+    });
+  }
+
+  _deathFall() {
+    // Tint red briefly
+    this.setTint(0xFF4444);
+
+    // Rise up, then fall off screen with spin
+    this.scene.tweens.add({
+      targets: this,
+      y: this.y + EFFECTS.DEATH_RISE_VELOCITY,
+      angle: 360 * (this._facingRight ? 1 : -1),
+      duration: EFFECTS.DEATH_ANIM_DURATION * 0.4,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        // Fall off screen
+        this.scene.tweens.add({
+          targets: this,
+          y: GAME.HEIGHT + PLAYER.HEIGHT * 3,
+          angle: this.angle + 180,
+          duration: EFFECTS.DEATH_ANIM_DURATION * 0.6,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            this.setVisible(false);
+          },
+        });
+      },
+    });
   }
 
   destroy(fromScene) {
